@@ -1,0 +1,205 @@
+---
+title: leo synthesize
+description: Synthesize proving and verifying keys for program functions
+---
+
+Generate proving and verifying keys for a program's functions. This command is used to pre-generate cryptographic keys that can be reused for creating zero-knowledge proofs.
+
+## Usage
+
+```bash
+leo synthesize <PROGRAM_NAME> [OPTIONS]
+```
+
+## Arguments
+
+<ParamField path="PROGRAM_NAME" type="string" required>
+  The name of the program to synthesize, e.g., `helloworld.aleo`
+</ParamField>
+
+## Options
+
+<ParamField path="--local" type="boolean">
+  Use the local Leo project. Builds the project before synthesizing.
+</ParamField>
+
+<ParamField path="--skip" type="string[]">
+  Skip functions that contain any of the given substrings. Can be specified multiple times.
+</ParamField>
+
+<ParamField path="--save" type="string">
+  Directory path to save the generated keys. Keys are not saved if not specified.
+</ParamField>
+
+<ParamField path="--network" type="string" default="testnet">
+  Network to use (mainnet, testnet, canary)
+</ParamField>
+
+<ParamField path="--endpoint" type="string">
+  API endpoint URL for querying network data
+</ParamField>
+
+<ParamField path="--private-key" type="string">
+  Private key for the account (can also use PRIVATE_KEY environment variable)
+</ParamField>
+
+## Examples
+
+### Synthesize local program
+
+```bash
+leo synthesize helloworld.aleo --local
+```
+
+### Synthesize with key saving
+
+```bash
+leo synthesize token.aleo --local --save ./keys
+```
+
+This saves keys in the format:
+```
+keys/
+  testnet.token.aleo.transfer.0.prover.1234567890
+  testnet.token.aleo.transfer.0.verifier.1234567890
+  testnet.token.aleo.transfer.0.metadata.1234567890
+```
+
+### Skip specific functions
+
+```bash
+leo synthesize program.aleo --local --skip "test" --skip "debug"
+```
+
+### Synthesize from network
+
+```bash
+leo synthesize token.aleo --network mainnet --save ./keys
+```
+
+## Output Information
+
+For each function, the command displays:
+
+```
+🔑 Synthesized keys for token.aleo/transfer (edition 0)
+ℹ️ Circuit Information:
+    - Public Inputs: 4
+    - Variables: 15234
+    - Constraints: 12456
+    - Non-Zero Entries in A: 23456
+    - Non-Zero Entries in B: 18234
+    - Non-Zero Entries in C: 19876
+    - Circuit ID: 7891234567890123456
+```
+
+## Key Files
+
+When `--save` is specified, three files are generated per function:
+
+1. **Prover Key** - Used to generate proofs
+   - Filename: `{network}.{program}.{function}.{edition}.prover.{timestamp}`
+   - Large file (MB to GB range)
+
+2. **Verifier Key** - Used to verify proofs
+   - Filename: `{network}.{program}.{function}.{edition}.verifier.{timestamp}`
+   - Small file (KB range)
+
+3. **Metadata** - Contains checksums and sizes
+   - Filename: `{network}.{program}.{function}.{edition}.metadata.{timestamp}`
+   - JSON format
+
+### Metadata Format
+
+```json
+{
+  "prover_checksum": "abc123...",
+  "prover_size": 1234567,
+  "verifier_checksum": "def456...",
+  "verifier_size": 12345
+}
+```
+
+## Use Cases
+
+### Pre-generate Keys for Production
+
+Generate keys once and reuse them:
+
+```bash
+leo synthesize production.aleo --local --save ./production-keys
+```
+
+### Key Distribution
+
+Distribute verifier keys to validators:
+
+```bash
+leo synthesize program.aleo --save ./keys
+# Distribute only .verifier files
+```
+
+### Performance Testing
+
+Measure circuit complexity:
+
+```bash
+leo synthesize program.aleo --local
+# Check constraint counts and variable usage
+```
+
+## Performance Considerations
+
+<Warning>
+Key synthesis can be time and memory intensive for complex programs. Large programs may require:
+- Several GB of RAM
+- Minutes to hours of processing time
+- Multiple GB of disk space for keys
+</Warning>
+
+<Tip>
+Use `--skip` to avoid synthesizing test or debug functions in production.
+</Tip>
+
+## Circuit Metrics
+
+The output provides important metrics for understanding program complexity:
+
+- **Public Inputs** - Number of public values the function accepts
+- **Variables** - Total circuit variables (indicates memory usage)
+- **Constraints** - Number of R1CS constraints (indicates proof size/time)
+- **Non-Zero Entries** - Sparsity of constraint matrices
+
+## Related Commands
+
+- [Build](/cli/build) - Compile programs before synthesis
+- [Deploy](/cli/deploy) - Deploy programs to network
+- [Execute](/cli/execute) - Execute programs with proofs
+
+## Troubleshooting
+
+### Out of memory during synthesis
+
+For large programs, increase available memory or skip functions:
+
+```bash
+leo synthesize program.aleo --local --skip "complex_function"
+```
+
+### Program not found on network
+
+If synthesizing from network, ensure program is deployed:
+
+```bash
+leo query program program_name.aleo
+```
+
+### Keys directory not writable
+
+Ensure the save directory exists and has write permissions:
+
+```bash
+mkdir -p ./keys
+chmod 755 ./keys
+leo synthesize program.aleo --local --save ./keys
+```

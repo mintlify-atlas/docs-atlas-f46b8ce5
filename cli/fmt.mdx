@@ -1,0 +1,168 @@
+---
+title: leo fmt
+description: Format Leo source files
+---
+
+Automatically format Leo source files according to the official Leo style guide. This command ensures consistent code formatting across your project.
+
+## Usage
+
+```bash
+leo fmt [OPTIONS]
+```
+
+## Options
+
+<ParamField path="--check" type="boolean">
+  Check if files are formatted without making changes. Exit with code 1 if any files need formatting.
+</ParamField>
+
+<ParamField path="--path" type="string">
+  Specific file or directory to format. Defaults to current directory.
+</ParamField>
+
+## Examples
+
+### Format all files in project
+
+```bash
+leo fmt
+```
+
+### Check formatting without changes
+
+```bash
+leo fmt --check
+```
+
+This is useful in CI/CD pipelines:
+
+```bash
+# In CI script
+leo fmt --check || exit 1
+```
+
+### Format specific file
+
+```bash
+leo fmt --path src/main.leo
+```
+
+### Format specific directory
+
+```bash
+leo fmt --path src/
+```
+
+## Formatting Rules
+
+Leo follows these formatting conventions:
+
+### Indentation
+- Use 4 spaces for indentation
+- No tabs
+
+### Line Length
+- Maximum 120 characters per line
+- Break long lines at logical points
+
+### Spacing
+```leo
+// Correct spacing around operators
+let sum: u32 = a + b;
+
+// Spacing in function calls
+let result: u32 = compute(x, y, z);
+
+// No trailing whitespace
+```
+
+### Function Declarations
+```leo
+// Properly formatted function
+fn transfer(
+    sender: address,
+    receiver: address,
+    amount: u64
+) -> bool {
+    return true;
+}
+```
+
+### Imports
+```leo
+// Group imports at the top
+import token.aleo;
+import utilities.aleo;
+```
+
+## Integration
+
+### Pre-commit Hook
+
+Add to `.git/hooks/pre-commit`:
+
+```bash
+#!/bin/bash
+leo fmt --check
+if [ $? -ne 0 ]; then
+    echo "Code is not formatted. Run 'leo fmt' to format."
+    exit 1
+fi
+```
+
+### VS Code
+
+Configure VS Code to format on save by adding to `.vscode/settings.json`:
+
+```json
+{
+  "leo.formatOnSave": true
+}
+```
+
+## CI/CD Integration
+
+Add formatting check to your CI pipeline:
+
+```yaml
+# GitHub Actions example
+- name: Check formatting
+  run: leo fmt --check
+```
+
+## Related Commands
+
+- [Build](/cli/build) - Compile your formatted code
+- [Test](/cli/test) - Run tests on formatted code
+
+## Best Practices
+
+<Tip>
+Run `leo fmt` before committing code to maintain consistent style across the team.
+</Tip>
+
+<Note>
+The formatter preserves comments and applies minimal changes to maintain code readability.
+</Note>
+
+## Troubleshooting
+
+### Format check fails in CI
+
+If `leo fmt --check` fails in CI, run locally:
+
+```bash
+leo fmt
+git add .
+git commit -m "Format code"
+```
+
+### Syntax errors prevent formatting
+
+Fix syntax errors before formatting:
+
+```bash
+leo build  # Check for syntax errors
+leo fmt    # Format after fixing errors
+```

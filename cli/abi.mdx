@@ -1,0 +1,102 @@
+---
+title: leo abi
+description: Generate ABI from an Aleo bytecode file
+---
+
+Generate ABI (Application Binary Interface) from an Aleo bytecode file. This command reads a `.aleo` file and produces a JSON representation of the program's interface.
+
+## Usage
+
+```bash
+leo abi <FILE> [OPTIONS]
+```
+
+## Arguments
+
+<ParamField path="FILE" type="string" required>
+  Path to the `.aleo` bytecode file
+</ParamField>
+
+## Options
+
+<ParamField path="--network" type="string" default="testnet">
+  Network for parsing. Valid values:
+  - `mainnet` - Mainnet network
+  - `testnet` - Testnet network (default)
+  - `canary` - Canary network
+</ParamField>
+
+<ParamField path="--output" type="string">
+  Output file path. If not specified, prints to stdout.
+</ParamField>
+
+## Examples
+
+### Generate ABI to stdout
+
+```bash
+leo abi program.aleo
+```
+
+### Generate ABI to file
+
+```bash
+leo abi program.aleo --output program_abi.json
+```
+
+### Generate ABI for mainnet
+
+```bash
+leo abi program.aleo --network mainnet --output program_abi.json
+```
+
+## Output Format
+
+The generated ABI is a JSON file describing the program's interface:
+
+```json
+{
+  "program": "program_name.aleo",
+  "functions": [
+    {
+      "name": "function_name",
+      "inputs": [...],
+      "outputs": [...]
+    }
+  ],
+  "structs": [...],
+  "records": [...],
+  "mappings": [...]
+}
+```
+
+## Use Cases
+
+- **Documentation** - Generate API documentation for your program
+- **Integration** - Provide ABI to frontend applications for integration
+- **Tooling** - Build tools that interact with Leo programs
+- **Analysis** - Analyze program interfaces and dependencies
+
+## Related Commands
+
+- [Build](/cli/build) - Compile Leo programs to bytecode
+- [Deploy](/cli/deploy) - Deploy programs to network
+
+## Troubleshooting
+
+### File not found
+
+Ensure the `.aleo` file path is correct and the file exists:
+
+```bash
+ls -la program.aleo
+```
+
+### Invalid .aleo file
+
+The file must be valid Aleo bytecode. If you have a Leo source file, compile it first:
+
+```bash
+leo build
+leo abi build/main.aleo
+```

@@ -62,6 +62,7 @@
               "cli/execute",
               "cli/test",
               "cli/deploy",
+              "cli/upgrade",
               "cli/devnet",
               "cli/devnode",
               "cli/query",
@@ -69,6 +70,9 @@
               "cli/add",
               "cli/remove",
               "cli/clean",
+              "cli/fmt",
+              "cli/abi",
+              "cli/synthesize",
               "cli/update"
             ]
           },

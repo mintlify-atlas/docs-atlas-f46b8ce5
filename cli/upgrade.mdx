@@ -1,0 +1,329 @@
+---
+title: leo upgrade
+description: Upgrade an existing program on the Aleo network
+---
+
+Upgrade an existing program that has already been deployed to the Aleo network. This command creates upgrade transactions for programs with constructors, allowing you to modify program logic while maintaining state.
+
+## Usage
+
+```bash
+leo upgrade [OPTIONS]
+```
+
+## Options
+
+### Fee Options
+
+<ParamField path="--priority-fee" type="number">
+  Priority fee in microcredits. Higher fees may result in faster confirmation.
+</ParamField>
+
+<ParamField path="--fee-record" type="string">
+  Record to use for paying the priority fee
+</ParamField>
+
+### Transaction Actions
+
+<ParamField path="--broadcast" type="boolean">
+  Broadcast the upgrade transaction to the network
+</ParamField>
+
+<ParamField path="--save" type="string">
+  Save the upgrade transaction to the specified directory
+</ParamField>
+
+<ParamField path="--print" type="boolean">
+  Print the upgrade transaction in JSON format
+</ParamField>
+
+### Environment Options
+
+<ParamField path="--network" type="string" default="testnet">
+  Network to deploy to (mainnet, testnet, canary)
+</ParamField>
+
+<ParamField path="--endpoint" type="string">
+  Custom API endpoint URL
+</ParamField>
+
+<ParamField path="--private-key" type="string">
+  Private key for signing (can also use PRIVATE_KEY environment variable)
+</ParamField>
+
+### Build Options
+
+<ParamField path="--skip" type="string[]">
+  Skip upgrade of programs containing these substrings
+</ParamField>
+
+<ParamField path="--skip-deploy-certificate" type="boolean">
+  Skip deployment certificate generation (advanced usage)
+</ParamField>
+
+<ParamField path="--yes" type="boolean">
+  Skip confirmation prompts
+</ParamField>
+
+## Examples
+
+### Basic upgrade
+
+```bash
+leo upgrade --broadcast
+```
+
+### Upgrade with priority fee
+
+```bash
+leo upgrade --broadcast --priority-fee 1000000
+```
+
+### Save upgrade transaction without broadcasting
+
+```bash
+leo upgrade --save ./transactions
+```
+
+### Skip specific programs
+
+```bash
+leo upgrade --skip "test" --skip "debug" --broadcast
+```
+
+### Upgrade to mainnet
+
+```bash
+leo upgrade --network mainnet --broadcast
+```
+
+## Upgrade Requirements
+
+<Warning>
+**Constructor Required**: Only programs with a constructor (marked with `@noupgrade` or regular constructor) can be upgraded. Programs without constructors can only be upgraded once using special migration rules.
+</Warning>
+
+### Valid Upgrade Rules
+
+1. **Constructor Must Exist**: New version must have a constructor
+2. **Mappings Cannot Change**: Mapping definitions must remain identical
+3. **Records Can Be Added**: New record types can be added
+4. **Function Signatures**: Can modify logic but some constraints apply
+5. **Edition Increments**: Edition number automatically increments
+
+### Example Valid Constructor
+
+```leo
+program token.aleo {
+    @noupgrade
+    constructor() {}
+    
+    // Program logic can be modified in upgrades
+    fn transfer(amount: u64) -> bool {
+        return true;
+    }
+}
+```
+
+## Upgrade Process
+
+<Steps>
+  <Step title="Build updated program">
+    Leo automatically builds your project before upgrading.
+    
+    ```bash
+    # Happens automatically
+    leo build
+    ```
+  </Step>
+
+  <Step title="Verify program exists on network">
+    The command checks that the program is already deployed.
+    
+    ```bash
+    # Automatic validation
+    # Error if program not found on network
+    ```
+  </Step>
+
+  <Step title="Validate upgrade compatibility">
+    Checks that the upgrade follows all rules:
+    - Constructor requirements
+    - Mapping compatibility
+    - Naming structure
+    - Consensus version compatibility
+  </Step>
+
+  <Step title="Generate upgrade transaction">
+    Creates the upgrade deployment transaction with incremented edition.
+    
+    ```
+    📦 Creating deployment transaction for 'program.aleo'...
+    ```
+  </Step>
+
+  <Step title="Broadcast or save">
+    Either broadcasts to network or saves to file.
+    
+    ```bash
+    # Broadcast
+    📡 Broadcasting upgrade for program.aleo...
+    ✅ Upgrade confirmed!
+    ```
+  </Step>
+</Steps>
+
+## Upgrade Validation
+
+Before upgrading, the command validates:
+
+### Program Existence
+```
+Checking if program exists on network...
+✓ Found program.aleo (edition 0)
+```
+
+### Upgrade Compatibility
+```
+Validating upgrade rules...
+✓ Constructor present
+✓ Mappings unchanged
+✓ Naming structure valid
+```
+
+### Warnings
+```
+⚠️  Warnings:
+  - The program 'token.aleo' can only ever be upgraded once
+```
+
+## Edition System
+
+Each upgrade increments the program's edition number:
+
+```
+Current on-chain: token.aleo (edition 0)
+After upgrade:    token.aleo (edition 1)
+```
+
+The edition tracks the program version and is used for:
+- Key generation
+- Transaction validation
+- State migration
+
+## Cost Estimation
+
+The command displays estimated costs before broadcasting:
+
+```
+Upgrade Cost Estimate:
+  Base Fee:     1,000,000 microcredits
+  Storage Fee:  2,500,000 microcredits  
+  Priority Fee: 0 microcredits
+  Total:        3,500,000 microcredits
+```
+
+## JSON Output
+
+Enable `--json-output` for machine-readable results:
+
+```json
+{
+  "config": {
+    "address": "aleo1...",
+    "network": "testnet",
+    "endpoint": "https://api.explorer.provable.com/v1"
+  },
+  "deployments": [
+    {
+      "program": "token.aleo",
+      "transaction_id": "at1...",
+      "edition": 1
+    }
+  ]
+}
+```
+
+## Consensus Versions
+
+Different consensus versions have different upgrade rules:
+
+- **V7+**: Program naming structure validation
+- **V8+**: One-time upgrades for programs without constructors
+- **V9+**: Constructor required for all upgrades
+
+## Common Issues
+
+### Program not found on network
+
+```bash
+# Check if program is deployed
+leo query program token.aleo
+```
+
+### Invalid upgrade: mapping changed
+
+Mapping definitions cannot be modified:
+
+```leo
+// Cannot change this in upgrade:
+mapping balances: address => u64;
+```
+
+### Constructor missing
+
+Add a constructor to your program:
+
+```leo
+@noupgrade
+constructor() {}
+```
+
+## Related Commands
+
+- [Deploy](/cli/deploy) - Initial program deployment
+- [Build](/cli/build) - Compile programs
+- [Execute](/cli/execute) - Execute program functions
+
+## Best Practices
+
+<Tip>
+**Test upgrades on testnet first**: Always verify upgrade compatibility on testnet before upgrading mainnet programs.
+</Tip>
+
+<Tip>
+**Use version control**: Tag each upgrade in git to track program evolution.
+</Tip>
+
+<Note>
+**State preservation**: Upgrades preserve all on-chain state including mapping values and program balance.
+</Note>
+
+## Troubleshooting
+
+### Upgrade transaction fails
+
+Check the error message for specific validation failures:
+
+```bash
+leo upgrade --broadcast
+# Review error output
+# Fix issues in source code
+# Retry upgrade
+```
+
+### Fee estimation errors
+
+Ensure you have sufficient balance:
+
+```bash
+leo query balance
+```
+
+### Consensus version mismatch
+
+Update the consensus heights if needed:
+
+```bash
+leo upgrade --consensus-heights "0,100,200" --broadcast
+```
