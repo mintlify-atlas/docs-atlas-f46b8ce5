@@ -1,0 +1,301 @@
+---
+title: 'Built-in Types'
+description: 'Complete reference of all built-in types in Leo with sizes and ranges'
+---
+
+## Overview
+
+Leo provides a rich set of built-in types designed for zero-knowledge circuit development. All types have explicit sizes and well-defined semantics.
+
+## Integer Types
+
+Leo supports both unsigned and signed integer types.
+
+### Unsigned Integers
+
+| Type | Size | Range |
+|------|------|-------|
+| `u8` | 8 bits | 0 to 255 |
+| `u16` | 16 bits | 0 to 65,535 |
+| `u32` | 32 bits | 0 to 4,294,967,295 |
+| `u64` | 64 bits | 0 to 18,446,744,073,709,551,615 |
+| `u128` | 128 bits | 0 to 2^128 - 1 |
+
+### Signed Integers
+
+| Type | Size | Range |
+|------|------|-------|
+| `i8` | 8 bits | -128 to 127 |
+| `i16` | 16 bits | -32,768 to 32,767 |
+| `i32` | 32 bits | -2,147,483,648 to 2,147,483,647 |
+| `i64` | 64 bits | -2^63 to 2^63 - 1 |
+| `i128` | 128 bits | -2^127 to 2^127 - 1 |
+
+### Integer Literals
+
+```leo
+let small: u8 = 42u8;
+let medium: u32 = 1000000u32;
+let large: u128 = 340282366920938463463374607431768211455u128;
+let negative: i32 = -42i32;
+```
+
+<Note>
+Integer literals must include a type suffix (e.g., `42u8`, `100i32`). Leo does not perform implicit type coercion.
+</Note>
+
+## Field Type
+
+The `field` type represents a finite field element from the BLS12-377 scalar field.
+
+```leo
+let x: field = 123field;
+let y: field = 0field;
+```
+
+**Properties:**
+- Size: ~253 bits
+- Modulus: 8444461749428370424248824938781546531375899335154063827935233455917409239041
+- Arithmetic is performed modulo the field prime
+
+<Warning>
+Field arithmetic wraps around the modulus. Values outside the range [0, p-1] are automatically reduced.
+</Warning>
+
+## Group Type
+
+The `group` type represents a point on an elliptic curve.
+
+```leo
+let g: group = group::GEN; // Generator point
+```
+
+**Properties:**
+- Represents points on the Edwards BLS12 curve
+- Supports group operations (addition, scalar multiplication)
+- Used in cryptographic operations
+
+## Scalar Type
+
+The `scalar` type represents a scalar value used for elliptic curve operations.
+
+```leo
+let s: scalar = 1scalar;
+```
+
+**Properties:**
+- Used with group operations
+- Scalar multiplication: `scalar * group`
+
+## Boolean Type
+
+The `bool` type represents truth values.
+
+```leo
+let is_valid: bool = true;
+let is_empty: bool = false;
+```
+
+**Operations:**
+- Logical: `&&` (and), `||` (or), `!` (not)
+- Comparison: `==`, `!=`
+- Conditional: `if condition { ... } else { ... }`
+
+## Address Type
+
+The `address` type represents an Aleo account address.
+
+```leo
+let owner: address = aleo1qnr4dkkvkgfqph0vzc3y6z2eu975wnpz2925ntjccd5cfqxtyu8s7pyjh9;
+```
+
+**Properties:**
+- 63-character string starting with `aleo1`
+- Represents a public key hash
+- Used for ownership and authorization
+
+## String Type
+
+The `string` type represents text data.
+
+```leo
+let message: string = "Hello, Leo!";
+```
+
+<Note>
+Strings in Leo are primarily used for debugging and are not stored on-chain.
+</Note>
+
+## Signature Type
+
+The `signature` type represents a cryptographic signature.
+
+```leo
+let sig: signature = sign1qyqsqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq...;
+```
+
+## Composite Types
+
+### Struct
+
+User-defined composite type with named fields.
+
+```leo
+struct Point {
+    x: field,
+    y: field,
+}
+
+let p: Point = Point { x: 1field, y: 2field };
+```
+
+### Record
+
+Private data structure that always includes an `owner` field.
+
+```leo
+record Token {
+    owner: address,
+    amount: u64,
+}
+```
+
+**Key Features:**
+- Records are private by default
+- Always include an `owner: address` field
+- Used for private state management
+
+### Tuple
+
+Anonymous composite type with ordered elements.
+
+```leo
+let pair: (u32, field) = (42u32, 100field);
+let triple: (bool, u8, address) = (true, 5u8, owner);
+```
+
+### Array
+
+Fixed-size collection of elements of the same type.
+
+```leo
+let numbers: [u32; 5] = [1u32, 2u32, 3u32, 4u32, 5u32];
+let matrix: [[u8; 3]; 3] = [[0u8; 3]; 3]; // 3x3 matrix
+```
+
+**Properties:**
+- Fixed size known at compile time
+- Zero-indexed access: `numbers[0]`
+- All elements must be the same type
+
+### Vector
+
+Dynamic-size collection (compile-time size determined).
+
+```leo
+let items: Vec<u32> = vec![1u32, 2u32, 3u32];
+```
+
+## Mapping Type
+
+On-chain key-value storage (only in program scope).
+
+```leo
+mapping account: address => u64;
+```
+
+**Properties:**
+- Declared at program level
+- Publicly visible on-chain
+- Accessed in finalizer functions
+- Key and value types must be explicitly specified
+
+## Optional Type
+
+Represents a value that may or may not be present.
+
+```leo
+let maybe_value: Option<u32> = Some(42u32);
+let empty: Option<u32> = None;
+```
+
+## Future Type
+
+Represents deferred computation in finalizers.
+
+```leo
+fn transfer() -> Final {
+    return final { finalize_transfer() };
+}
+```
+
+**Properties:**
+- Used with the `Final` type
+- Represents on-chain computation that executes during finalization
+- Cannot be manipulated directly in Leo code
+
+## Unit Type
+
+The unit type `()` represents the absence of a value.
+
+```leo
+fn no_return() {
+    // Implicitly returns ()
+}
+```
+
+## Type Casting
+
+Leo supports explicit type casting between compatible types.
+
+```leo
+let x: u8 = 42u8;
+let y: u32 = x as u32;
+let z: field = y as field;
+```
+
+<Warning>
+Casting from a larger type to a smaller type may result in truncation. Always ensure the value fits in the target type.
+</Warning>
+
+## Type Inference
+
+While Leo requires type annotations for function signatures, local variables can use type inference:
+
+```leo
+fn example(x: u32) -> u64 {
+    let doubled = x * 2u32; // Type inferred as u32
+    return doubled as u64;
+}
+```
+
+## Special Types
+
+### self.caller
+
+Built-in value representing the caller's address:
+
+```leo
+let caller: address = self.caller;
+```
+
+### block.height
+
+Built-in value representing the current block height (in finalizers):
+
+```leo
+final fn check_deadline() {
+    assert(block.height <= 1000u32);
+}
+```
+
+## Related Resources
+
+<CardGroup cols={2}>
+  <Card title="Grammar Reference" icon="book" href="/reference/grammar">
+    Complete syntax specification
+  </Card>
+  <Card title="Examples" icon="code" href="/examples/overview">
+    See types in action
+  </Card>
+</CardGroup>

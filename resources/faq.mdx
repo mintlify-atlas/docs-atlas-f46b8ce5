@@ -1,0 +1,473 @@
+---
+title: 'Frequently Asked Questions'
+description: 'Common questions about Leo programming language'
+---
+
+## General Questions
+
+### What is Leo?
+
+Leo is a statically-typed programming language designed for building private applications on the Aleo blockchain. It compiles to Aleo instructions (bytecode) that execute as zero-knowledge proofs, enabling developers to create applications where computation is verified without revealing the underlying data.
+
+### How is Leo different from other smart contract languages?
+
+**Privacy by Default:**
+- Leo emphasizes privacy through zero-knowledge proofs
+- Records provide private state management
+- Computations can be verified without revealing inputs
+
+**Static Typing:**
+- All types must be explicitly declared
+- No implicit type coercion
+- Compile-time type checking prevents many runtime errors
+
+**Zero-Knowledge Circuits:**
+- Leo compiles to constraint systems
+- Every operation becomes part of a mathematical proof
+- Proofs are verified on-chain
+
+### Is Leo production-ready?
+
+Leo is currently in active development. While functional and tested, it's considered in an alpha/beta stage. Breaking changes may occur between versions. Production use should be carefully evaluated based on your risk tolerance.
+
+### What blockchain does Leo run on?
+
+Leo programs compile to Aleo instructions that execute on the Aleo blockchain. Aleo is a Layer 1 blockchain specifically designed for private applications using zero-knowledge proofs.
+
+## Language Features
+
+### Does Leo support loops?
+
+Yes, but with an important caveat: **all loops must be unrollable at compile time**. This is because zero-knowledge circuits cannot have dynamic control flow.
+
+```leo
+// Supported - fixed iteration count
+for i in 0u32..10u32 {
+    sum += i;
+}
+
+// Not supported - dynamic iteration count
+for i in 0u32..n {  // n is a variable
+    sum += i;
+}
+```
+
+The compiler unrolls all loops during compilation.
+
+### Can I use recursion?
+
+No. Leo does not support recursive function calls because:
+- Circuits cannot have unbounded depth
+- All computation must be deterministic at compile time
+- Recursion would create circuits of unknown size
+
+### What about dynamic arrays?
+
+Leo requires array sizes to be known at compile time:
+
+```leo
+// Supported
+let fixed: [u32; 5] = [1u32, 2u32, 3u32, 4u32, 5u32];
+
+// Not supported
+let dynamic: [u32; n] = ...;  // n is a variable
+```
+
+For dynamic-sized collections, consider using mappings or designing your program to work with fixed-size structures.
+
+### Does Leo have strings?
+
+Yes, but with limitations:
+
+```leo
+let message: string = "Hello, Leo!";
+```
+
+**Current Limitations:**
+- Strings are primarily for debugging
+- Limited string manipulation
+- Not typically stored on-chain
+- No string concatenation
+
+Strings are not a primary focus since zero-knowledge proofs work better with structured data types.
+
+### Can I use floating-point numbers?
+
+No. Leo does not support floating-point arithmetic because:
+- ZK circuits work with finite fields
+- Floating-point is non-deterministic
+- Precision issues would affect proof verification
+
+**Alternatives:**
+- Use fixed-point arithmetic with integers
+- Scale values by powers of 10
+- Use field elements for modular arithmetic
+
+```leo
+// Instead of 3.14
+let pi: u32 = 314u32;  // Represents 3.14 * 100
+let radius: u32 = 500u32;  // Represents 5.00 * 100
+let circumference: u32 = 2u32 * pi * radius / 100u32;
+```
+
+## Records and Privacy
+
+### What are records?
+
+Records are private data structures in Leo:
+
+```leo
+record Token {
+    owner: address,
+    amount: u64,
+}
+```
+
+**Key Properties:**
+- Private by default (encrypted on-chain)
+- Owner-controlled (only owner can spend)
+- Support UTXO-like model
+- Enable private state management
+
+### How do records differ from structs?
+
+| Feature | Record | Struct |
+|---------|--------|--------|
+| Privacy | Private (encrypted) | Depends on usage |
+| Owner field | Required | Optional |
+| Storage | Off-chain (user holds) | In-memory only |
+| Use case | Private state | Data organization |
+
+### Can I have public records?
+
+No. Records are always private by default. If you need public state, use mappings instead:
+
+```leo
+// Public state
+mapping balances: address => u64;
+
+// Private state
+record Token {
+    owner: address,
+    amount: u64,
+}
+```
+
+### What happens to spent records?
+
+When a record is consumed (used as input to a function), it's marked as spent and cannot be used again. This prevents double-spending.
+
+```leo
+fn transfer(token: Token, receiver: address, amount: u64) -> (Token, Token) {
+    // 'token' is consumed here
+    // Two new records are created
+}
+```
+
+## Mappings and On-Chain State
+
+### When should I use mappings vs records?
+
+**Use Mappings when:**
+- You need public, transparent state
+- Multiple parties need to read the same data
+- Global state tracking is required
+- Compliance requires public audit trails
+
+**Use Records when:**
+- Privacy is important
+- Users should control their own state
+- You want to hide transaction amounts
+- UTXO-like model fits your use case
+
+### Can I access mappings in regular functions?
+
+No. Mapping operations (get, set, remove) are only available in finalizer functions:
+
+```leo
+// Wrong - won't compile
+fn get_balance(user: address) -> u64 {
+    return Mapping::get(balances, user);
+}
+
+// Correct - use finalizer
+fn get_balance(user: address) -> Final {
+    return final { finalize_get_balance(user); };
+}
+
+final fn finalize_get_balance(user: address) {
+    let balance: u64 = Mapping::get_or_use(balances, user, 0u64);
+}
+```
+
+### Are mappings expensive?
+
+Yes, relatively. Mapping operations:
+- Update on-chain state
+- Require finalization
+- Increase transaction costs
+- Are publicly visible
+
+Use mappings judiciously and batch operations when possible.
+
+## Compilation and Execution
+
+### How does Leo compile?
+
+The compilation pipeline:
+
+1. **Lexer**: Tokenizes source code
+2. **Parser**: Builds syntax tree
+3. **Type Checker**: Validates types and semantics
+4. **Compiler Passes**: Optimizations, loop unrolling, etc.
+5. **Code Generation**: Produces Aleo instructions
+6. **Synthesis**: Creates constraint system (during proving)
+
+### What are finalizers?
+
+Finalizers are functions that execute on-chain after proof verification:
+
+```leo
+fn transfer(receiver: address, amount: u64) -> Final {
+    return final { finalize_transfer(receiver, amount); };
+}
+
+final fn finalize_transfer(receiver: address, amount: u64) {
+    // This code executes on-chain
+    Mapping::set(balances, receiver, amount);
+}
+```
+
+**Key Points:**
+- Execute after proof verification
+- Can access and modify mappings
+- Can use `block.height` and other on-chain data
+- Can fail via assertions (rejecting the transaction)
+
+### Why do proofs take so long to generate?
+
+Proof generation involves:
+- Computing the entire circuit
+- Generating cryptographic witnesses
+- Creating zero-knowledge proofs
+- Mathematical operations on large numbers
+
+**Optimization Tips:**
+- Keep functions small and focused
+- Minimize loop iterations
+- Avoid unnecessary operations
+- Batch related operations
+
+### Can I parallelize proof generation?
+
+Proof generation for a single transaction is inherently sequential. However, you can generate proofs for multiple independent transactions in parallel.
+
+## Development and Tooling
+
+### What editor should I use?
+
+Leo works with any text editor. Popular choices:
+
+- **VS Code**: Official Leo extension available
+- **Vim/Neovim**: Community plugins available
+- **IntelliJ**: Basic syntax highlighting
+- **Emacs**: Community support
+
+### How do I debug Leo programs?
+
+Debugging strategies:
+
+1. **Use assertions liberally:**
+   ```leo
+   assert(amount > 0u64);
+   assert(sender != receiver);
+   ```
+
+2. **Check generated Aleo code:**
+   ```bash
+   leo build
+   cat build/main.aleo
+   ```
+
+3. **Simplify complex functions:**
+   Break down operations into smaller steps
+
+4. **Use verbose output:**
+   ```bash
+   leo build --verbose
+   ```
+
+### Can I import external libraries?
+
+Leo supports importing other Aleo programs:
+
+```bash
+leo add token.aleo
+```
+
+Then use in your code:
+```leo
+import token.aleo;
+
+fn example() {
+    // Use token.aleo functions
+}
+```
+
+Note: All imports must be other Aleo programs, not arbitrary packages.
+
+### How do I test my Leo programs?
+
+Leo supports testing through:
+
+1. **Unit tests with input files:**
+   Create `inputs/program.in` with test cases
+   ```bash
+   leo test
+   ```
+
+2. **Integration tests:**
+   Use `leo run` with specific inputs
+   ```bash
+   leo run function_name arg1 arg2
+   ```
+
+3. **CI/CD:**
+   Integrate Leo tests into your CI pipeline
+
+## Performance and Optimization
+
+### How can I optimize my Leo programs?
+
+**Reduce circuit complexity:**
+- Minimize operations in hot paths
+- Avoid unnecessary computations
+- Use simpler types when possible (u8 vs u128)
+
+**Batch operations:**
+- Combine related operations in one function
+- Reduce number of separate transactions
+
+**Choose appropriate types:**
+- Smaller types = smaller circuits
+- Use u8 instead of u64 when possible
+
+**Avoid large loops:**
+- Remember loops are unrolled
+- 1000-iteration loop = 1000x code size
+
+### What's the maximum program size?
+
+There's no hard limit, but practical constraints:
+- Larger circuits take longer to prove
+- Circuit complexity affects verifier costs
+- Memory limitations during proving
+
+Aim for focused, modular programs rather than monolithic ones.
+
+### How much does it cost to run a Leo program?
+
+Costs depend on:
+- Circuit size (operations performed)
+- On-chain storage usage (mappings)
+- Finalization operations
+- Network congestion
+
+Smaller, simpler programs are cheaper to execute.
+
+## Advanced Topics
+
+### Can Leo programs call other programs?
+
+Yes, through imports:
+
+```leo
+import token.aleo;
+
+fn use_token() {
+    // Call token.aleo functions
+}
+```
+
+All imports must be resolved at compile time.
+
+### What cryptographic primitives does Leo support?
+
+- **Finite field arithmetic**: Built-in `field` type
+- **Elliptic curves**: `group` type for curve points
+- **Hashing**: Via Aleo instructions (not directly in Leo)
+- **Signatures**: `signature` type
+- **Randomness**: ChaCha RNG in finalizers
+
+### Can I use Leo for DeFi applications?
+
+Yes! Leo is well-suited for DeFi:
+- Private trading (hide amounts)
+- Confidential transactions
+- Private auctions
+- Anonymous voting
+- Shielded asset transfers
+
+See the Token example for a starting point.
+
+### How do I handle errors in Leo?
+
+Leo uses assertions rather than exceptions:
+
+```leo
+fn transfer(amount: u64) {
+    assert(amount > 0u64);  // Transaction fails if false
+    assert(amount <= 1000000u64);
+    // ... rest of function
+}
+```
+
+There's no try-catch or error recovery. Failed assertions reject the transaction.
+
+## Community and Contribution
+
+### How can I contribute to Leo?
+
+See the [Contributing Guide](/resources/contributing) for detailed instructions.
+
+Quick start:
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Run tests (`cargo test`)
+5. Format code (`cargo +nightly fmt`)
+6. Submit a pull request
+
+### Where can I get help?
+
+- **Discord**: [Aleo Discord](https://discord.gg/aleo)
+- **GitHub Discussions**: [Leo Discussions](https://github.com/ProvableHQ/leo/discussions)
+- **Documentation**: [Leo Docs](https://leo-lang.org)
+
+### Is there a Leo playground?
+
+Check the Aleo website for online tools and playgrounds. You can also run Leo locally:
+
+```bash
+leo new my-project
+cd my-project
+leo build
+leo run main
+```
+
+## Related Resources
+
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Get started with Leo
+  </Card>
+  <Card title="Examples" icon="code" href="/examples/overview">
+    Example programs
+  </Card>
+  <Card title="Troubleshooting" icon="wrench" href="/resources/troubleshooting">
+    Common errors and solutions
+  </Card>
+  <Card title="Contributing" icon="git-branch" href="/resources/contributing">
+    Help improve Leo
+  </Card>
+</CardGroup>

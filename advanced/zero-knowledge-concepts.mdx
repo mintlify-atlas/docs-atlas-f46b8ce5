@@ -1,0 +1,530 @@
+---
+title: Zero-Knowledge Concepts
+description: Understanding how Leo compiles to zero-knowledge proofs, R1CS circuits, and Aleo's architecture
+---
+
+Leo is designed from the ground up to compile programs into zero-knowledge proofs. This page explains the fundamental ZK concepts underlying Leo and how the compiler transforms high-level code into circuits that can generate and verify proofs.
+
+## What is Zero-Knowledge?
+
+A zero-knowledge proof allows one party (the prover) to prove to another party (the verifier) that a statement is true, without revealing any information beyond the validity of the statement itself.
+
+### Key Properties
+
+**Completeness**: If the statement is true, an honest prover can convince an honest verifier.
+
+**Soundness**: A dishonest prover cannot convince a verifier of a false statement (except with negligible probability).
+
+**Zero-Knowledge**: The verifier learns nothing beyond the fact that the statement is true.
+
+### Example Use Case
+
+Prove you know a password without revealing it:
+```leo
+transition verify_password(password: field) -> bool {
+    // Hash is public, password input is private
+    let hash: field = BHP256::hash_to_field(password);
+    return hash == 123456789field;
+}
+```
+
+The verifier sees that the password is correct, but never sees the actual password value.
+
+<Info>
+Leo uses **zk-SNARKs** (Zero-Knowledge Succinct Non-Interactive Arguments of Knowledge) - proofs that are small, fast to verify, and don't require interaction between prover and verifier.
+</Info>
+
+## From Leo to Zero-Knowledge Proofs
+
+### Compilation Pipeline
+
+```
+Leo Source Code
+    ↓
+Abstract Syntax Tree (AST)
+    ↓
+Compiler Passes (type checking, optimization, flattening)
+    ↓
+Aleo Instructions (register-based bytecode)
+    ↓
+Aleo VM (executes and generates constraints)
+    ↓
+R1CS Constraints (Rank-1 Constraint System)
+    ↓
+zk-SNARK Proof
+```
+
+### Why Flattening is Essential
+
+Zero-knowledge circuits cannot represent dynamic control flow. The flattening pass transforms all control flow into arithmetic operations:
+
+```leo
+// High-level Leo (before flattening):
+if (condition) {
+    result = x + 1u32;
+} else {
+    result = y + 2u32;
+}
+
+// After flattening:
+let branch_a = x + 1u32;
+let branch_b = y + 2u32;
+let result = condition ? branch_a : branch_b;
+```
+
+In circuit form, both branches are **always computed**, and the condition acts as a selector:
+
+```
+result = condition * branch_a + (1 - condition) * branch_b
+```
+
+This is why Leo requires:
+- All loops must be unrollable at compile time
+- No recursion (would create unbounded circuits)
+- No dynamic memory allocation
+
+<Warning>
+**Circuit Size Matters**: Every operation in your program contributes to the circuit size. Larger circuits require more proving time and memory. The flattening pass ensures both branches execute, so optimize both paths.
+</Warning>
+
+## R1CS: Rank-1 Constraint System
+
+Leo programs compile to R1CS, a standard representation for arithmetic circuits.
+
+### R1CS Structure
+
+Each constraint has the form:
+```
+(a₁·w₁ + a₂·w₂ + ... + aₙ·wₙ) · (b₁·w₁ + b₂·w₂ + ... + bₙ·wₙ) = (c₁·w₁ + c₂·w₂ + ... + cₙ·wₙ)
+```
+
+Where:
+- `wᵢ` are wire values (variables in the circuit)
+- `aᵢ, bᵢ, cᵢ` are coefficients
+- The constraint enforces: `A · B = C`
+
+### Example: Addition
+
+```leo
+let result = a + b;
+```
+
+Compiles to the R1CS constraint:
+```
+(a + b) · 1 = result
+```
+
+### Example: Multiplication
+
+```leo
+let result = a * b;
+```
+
+Compiles to:
+```
+a · b = result
+```
+
+### Example: Complex Expression
+
+```leo
+let result = (a + b) * (c + d);
+```
+
+Requires intermediate variables:
+```
+// Wire assignments:
+temp1 = a + b
+temp2 = c + d
+result = temp1 * temp2
+
+// R1CS constraints:
+(a + b) · 1 = temp1
+(c + d) · 1 = temp2
+temp1 · temp2 = result
+```
+
+This is exactly what the SSA pass does—it breaks down complex expressions into sequences of simple operations.
+
+<Note>
+Each R1CS constraint can only represent **one multiplication** (plus arbitrary additions). This is why SSA and flattening are crucial: they decompose programs into sequences of simple operations that map cleanly to R1CS.
+</Note>
+
+## Aleo's Architecture
+
+Leo compiles to Aleo Instructions, which are executed by the Aleo Virtual Machine (AVM).
+
+### Aleo Instructions
+
+Aleo uses a register-based instruction set:
+
+```aleo
+function compute:
+    input r0 as u32.private;    // Private input in register r0
+    input r1 as u32.public;     // Public input in register r1
+    add r0 r1 into r2;          // r2 = r0 + r1
+    mul r2 r2 into r3;          // r3 = r2 * r2
+    output r3 as u32.private;   // Output r3 privately
+```
+
+### Public vs Private Data
+
+Leo distinguishes between public and private data:
+
+**Private** (`.private`): Hidden from the verifier, included in the proof
+
+**Public** (`.public`): Visible to everyone, used as public inputs to the proof
+
+**Constant** (`.constant`): Known at compile time, optimized away
+
+```leo
+transition transfer(
+    sender: address,        // private by default
+    receiver: address.public,  // explicitly public
+    amount: u64.private,
+) -> Token {
+    // ...
+}
+```
+
+### Records: Private State
+
+Records enable private state management:
+
+```leo
+record Token {
+    owner: address,
+    amount: u64,
+}
+
+transition transfer(
+    token: Token,              // Private input record
+    to: address,
+    amount: u64,
+) -> (Token, Token) {          // Private output records
+    let remaining = Token {
+        owner: token.owner,
+        amount: token.amount - amount,
+    };
+    
+    let transferred = Token {
+        owner: to,
+        amount: amount,
+    };
+    
+    return (remaining, transferred);
+}
+```
+
+Records are:
+- **Private**: Only the owner knows the record exists
+- **Consumed**: Input records are spent (deleted)
+- **Created**: Output records are generated
+- **Encrypted**: Stored encrypted on-chain
+
+<Info>
+Records implement the **UTXO model** from Bitcoin, but with privacy. Each record can only be spent once, and spending it creates new records.
+</Info>
+
+### Mappings: Public State
+
+Mappings provide public on-chain storage:
+
+```leo
+mapping account: address => u64;
+
+transition mint_public(receiver: address, amount: u64) {
+    return then finalize(receiver, amount);
+}
+
+finalize mint_public(receiver: address, amount: u64) {
+    let current: u64 = Mapping::get_or_use(account, receiver, 0u64);
+    Mapping::set(account, receiver, current + amount);
+}
+```
+
+Mapping operations happen in `finalize` blocks, which execute **after** the proof is verified.
+
+## Zero-Knowledge Optimizations in Leo
+
+### 1. Constant Folding
+
+The compiler evaluates constants at compile time to reduce circuit size:
+
+```leo
+// Before:
+let x = 2u32 + 3u32;
+let y = x * 10u32;
+
+// After constant folding:
+let y = 50u32;
+```
+
+### 2. Dead Code Elimination
+
+Removes unused computations that would add unnecessary constraints:
+
+```leo
+// Before:
+let unused = expensive_computation();
+return simple_value;
+
+// After DCE:
+return simple_value;
+```
+
+### 3. Common Subexpression Elimination
+
+Reuses computed values to reduce duplicate constraints:
+
+```leo
+// Before:
+let a = x * y + z;
+let b = x * y + w;  // x * y computed twice
+
+// After CSE:
+let temp = x * y;
+let a = temp + z;
+let b = temp + w;   // Reuses temp
+```
+
+### 4. Function Inlining
+
+Inlines small functions to eliminate call overhead:
+
+```leo
+inline square(x: u32) -> u32 {
+    return x * x;
+}
+
+transition main(a: u32) -> u32 {
+    return square(a) + square(a);
+}
+
+// After inlining:
+transition main(a: u32) -> u32 {
+    let temp1 = a * a;
+    let temp2 = a * a;
+    return temp1 + temp2;
+}
+
+// After CSE:
+transition main(a: u32) -> u32 {
+    let temp = a * a;
+    return temp + temp;
+}
+```
+
+<Note>
+Each optimization pass reduces the number of constraints in the final circuit, directly improving proof generation time and memory usage.
+</Note>
+
+## Proof Generation and Verification
+
+### The Proving Process
+
+1. **Compile**: Leo source → Aleo instructions
+2. **Execute**: Run the program with inputs to generate a witness (all wire values)
+3. **Setup**: Generate proving and verifying keys (one-time per program)
+4. **Prove**: Create a proof that the execution is correct
+5. **Verify**: Check the proof (fast, ~milliseconds)
+
+### Trusted Setup
+
+Aleo uses a universal trusted setup, meaning:
+- One setup ceremony serves **all programs**
+- No per-program setup required
+- Uses the Marlin proof system
+
+### Proof Size and Verification Time
+
+With zk-SNARKs:
+- **Proof size**: ~1-2 KB (constant, independent of program size)
+- **Verification time**: ~10 milliseconds (constant)
+- **Proving time**: Proportional to circuit size (can be seconds to minutes)
+
+## Cryptographic Primitives
+
+Leo provides cryptographic operations optimized for zero-knowledge circuits:
+
+### Hash Functions
+
+```leo
+transition hash_example(data: field) -> field {
+    // Poseidon - optimized for ZK circuits
+    let h1: field = Poseidon2::hash_to_field(data);
+    
+    // BHP - Bowe-Hopwood-Pedersen hash
+    let h2: field = BHP256::hash_to_field(data);
+    
+    return h1;
+}
+```
+
+**Poseidon**: Designed specifically for zk-SNARKs, uses far fewer constraints than SHA-256.
+
+**BHP**: Algebraic hash function, efficient in zero-knowledge.
+
+<Warning>
+Avoid using SHA-256 or other traditional hash functions in Leo programs. They are extremely expensive in zero-knowledge circuits (tens of thousands of constraints). Use Poseidon or BHP instead.
+</Warning>
+
+### Commitments
+
+```leo
+transition commit_example(value: field, randomness: scalar) -> field {
+    return BHP256::commit_to_field(value, randomness);
+}
+```
+
+Commitments hide a value while allowing later revelation.
+
+### Signatures
+
+```leo
+transition verify_signature(
+    signature: signature,
+    address: address,
+    message: field,
+) -> bool {
+    return signature::verify(signature, address, message);
+}
+```
+
+Signature verification in zero-knowledge allows proving authorization without revealing the signature itself.
+
+## Circuit Size Analysis
+
+### Estimating Circuit Size
+
+The circuit size (number of constraints) depends on:
+
+1. **Arithmetic operations**: Each multiplication = 1 constraint
+2. **Hash operations**: Poseidon2 = ~300 constraints, SHA-256 = ~25,000 constraints
+3. **Ternary operations**: ~3 constraints
+4. **Array accesses**: Depends on array size (dynamic access requires one constraint per element)
+5. **Loop unrolling**: Circuit size multiplied by iteration count
+
+### Example Analysis
+
+```leo
+transition example(a: u32, b: u32, flag: bool) -> u32 {
+    let x = a + b;           // 0 constraints (addition is free in R1CS)
+    let y = x * x;           // 1 constraint (multiplication)
+    let z = flag ? y : a;    // ~3 constraints (ternary)
+    let h = Poseidon2::hash_to_field(z);  // ~300 constraints
+    return h;                // Total: ~304 constraints
+}
+```
+
+### Optimization Guidelines
+
+1. **Minimize multiplications**: Use addition when possible
+2. **Hoist loop-invariant computations**: Move calculations outside loops
+3. **Use ternary instead of if-else**: Already done by flattening pass
+4. **Inline small functions**: Reduces call overhead
+5. **Eliminate dead code**: Remove unused computations
+
+<Info>
+The Leo compiler automatically applies many optimizations. Focus on algorithmic improvements and choosing the right cryptographic primitives.
+</Info>
+
+## Async Functions and Finalize
+
+Aleo introduces a two-phase execution model:
+
+### Phase 1: Transition (Off-chain, Private)
+
+```leo
+transition transfer_public(
+    sender: address,
+    receiver: address,
+    amount: u64,
+) {
+    // Executed off-chain, generates a proof
+    // Can access private inputs
+    
+    // Schedule finalize
+    return then finalize(sender, receiver, amount);
+}
+```
+
+### Phase 2: Finalize (On-chain, Public)
+
+```leo
+finalize transfer_public(
+    sender: address,
+    receiver: address,
+    amount: u64,
+) {
+    // Executed on-chain after proof verification
+    // Can access/modify public state (mappings)
+    
+    let sender_balance = Mapping::get(balances, sender);
+    Mapping::set(balances, sender, sender_balance - amount);
+    
+    let receiver_balance = Mapping::get(balances, receiver);
+    Mapping::set(balances, receiver, receiver_balance + amount);
+}
+```
+
+**Key Insight**: Finalize blocks don't generate proofs. They execute deterministically on-chain after the proof is verified, enabling public state updates.
+
+## Common Pitfalls
+
+### 1. Dynamic Array Indexing
+
+```leo
+// ❌ Bad: Dynamic index requires checking all elements
+let value = array[unknown_index];
+
+// ✅ Good: Static index is free
+let value = array[5];
+```
+
+### 2. Unbounded Loops
+
+```leo
+// ❌ Bad: Cannot unroll
+for i in 0..n {  // n is not constant
+    sum += array[i];
+}
+
+// ✅ Good: Constant bound
+for i in 0..100 {  // Unrolls to 100 statements
+    sum += array[i];
+}
+```
+
+### 3. Expensive Hash Functions
+
+```leo
+// ❌ Bad: SHA-256 is ~25,000 constraints
+let hash = SHA256::hash(data);
+
+// ✅ Good: Poseidon2 is ~300 constraints
+let hash = Poseidon2::hash_to_field(data);
+```
+
+### 4. Unnecessary Branching
+
+```leo
+// ❌ Bad: Both branches execute anyway
+if (condition) {
+    result = expensive_function_a();
+} else {
+    result = expensive_function_b();
+}
+
+// ✅ Good: Precompute when one branch is simple
+let simple_value = 0u32;
+let complex_value = expensive_function();
+let result = condition ? complex_value : simple_value;
+```
+
+## Further Reading
+
+- [Compiler Architecture](/advanced/compiler-architecture) - How the compiler is structured
+- [Compiler Passes](/advanced/compiler-passes) - Detailed pass documentation
+- [Optimization](/advanced/optimization) - Performance tuning guide
+- [Aleo Documentation](https://developer.aleo.org/) - Aleo VM and instruction set

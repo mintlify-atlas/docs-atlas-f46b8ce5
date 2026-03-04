@@ -1,0 +1,554 @@
+---
+title: 'Troubleshooting'
+description: 'Common errors and solutions for Leo programming'
+---
+
+## Overview
+
+This guide covers common errors you might encounter while programming in Leo, along with their solutions. Leo's error codes follow the format `E{CATEGORY}{CODE}`, where categories include PAR (parser), AST, TYC (type checker), and CMP (compiler).
+
+## Parser Errors (PAR)
+
+Parser errors occur during the lexing and parsing phase.
+
+### Unexpected Token
+
+**Error:**
+```
+Error [EPAR0000000]: expected ';' -- found 'let'
+```
+
+**Cause:** Missing semicolon or incorrect syntax.
+
+**Solution:**
+```leo
+// Wrong
+let x: u32 = 42u32
+let y: u32 = 10u32
+
+// Correct
+let x: u32 = 42u32;
+let y: u32 = 10u32;
+```
+
+### Unexpected EOF
+
+**Error:**
+```
+Error [EPAR0000000]: unexpected EOF
+```
+
+**Cause:** Unclosed brackets, braces, or incomplete expressions.
+
+**Solution:**
+```leo
+// Wrong
+fn example() -> u32 {
+    return 42u32
+    // Missing closing brace
+
+// Correct
+fn example() -> u32 {
+    return 42u32;
+}
+```
+
+### Invalid Address Literal
+
+**Error:**
+```
+Error [EPAR0000000]: invalid address literal: 'aleo123'
+```
+
+**Cause:** Malformed address (addresses must be 63 characters and start with `aleo1`).
+
+**Solution:**
+```leo
+// Wrong
+let addr: address = aleo123;
+
+// Correct
+let addr: address = aleo1qnr4dkkvkgfqph0vzc3y6z2eu975wnpz2925ntjccd5cfqxtyu8s7pyjh9;
+```
+
+## Type Checker Errors (TYC)
+
+Type checker errors occur during semantic analysis.
+
+### Type Mismatch
+
+**Error:**
+```
+Error [ETYC2000000]: Expected type `u32` but type `u64` was found
+```
+
+**Cause:** Attempting to use a value of one type where another is expected.
+
+**Solution:**
+```leo
+// Wrong
+let x: u32 = 42u64;
+
+// Correct - use type casting
+let x: u32 = 42u64 as u32;
+
+// Or use the correct literal
+let x: u32 = 42u32;
+```
+
+### Unknown Symbol
+
+**Error:**
+```
+Error [ETYC2000000]: Unknown variable `amount`
+```
+
+**Cause:** Using a variable that hasn't been declared.
+
+**Solution:**
+```leo
+// Wrong
+fn example() -> u64 {
+    return amount;  // 'amount' not declared
+}
+
+// Correct
+fn example(amount: u64) -> u64 {
+    return amount;
+}
+```
+
+### Incorrect Number of Arguments
+
+**Error:**
+```
+Error [ETYC2000000]: Call expected `2` args, but got `1`
+```
+
+**Cause:** Function called with wrong number of arguments.
+
+**Solution:**
+```leo
+fn add(a: u32, b: u32) -> u32 {
+    return a + b;
+}
+
+// Wrong
+let result: u32 = add(5u32);
+
+// Correct
+let result: u32 = add(5u32, 10u32);
+```
+
+### Cannot Assign to Const
+
+**Error:**
+```
+Error [ETYC2000000]: Cannot assign to const variable `x`
+```
+
+**Cause:** Attempting to modify a constant variable.
+
+**Solution:**
+```leo
+// Wrong
+const MAX: u32 = 100u32;
+MAX = 200u32;  // Cannot reassign const
+
+// Correct - use a mutable variable
+let mut max: u32 = 100u32;
+max = 200u32;
+```
+
+### Invalid Assignment Target
+
+**Error:**
+```
+Error [ETYC2000000]: Invalid assignment target
+```
+
+**Cause:** Attempting to assign to an expression that is not a valid assignment target.
+
+**Solution:**
+```leo
+// Wrong
+(x + y) = 10u32;  // Cannot assign to an expression
+
+// Correct
+let result: u32 = x + y;
+```
+
+## Compiler Errors (CMP)
+
+Compiler errors occur during the compilation and code generation phase.
+
+### Import Not Found
+
+**Error:**
+```
+Error [ECMP6000000]: Attempted to import a file that does not exist
+```
+
+**Cause:** Importing a non-existent module or program.
+
+**Solution:**
+```bash
+# Check your imports
+leo add <program_name>
+
+# Verify program.json has correct dependencies
+```
+
+### Program Name Mismatch
+
+**Error:**
+```
+Error [ECMP6000000]: The program name `token` must match main.leo
+```
+
+**Cause:** Program name doesn't match the file name.
+
+**Solution:**
+```leo
+// In main.leo:
+// Wrong
+program mytoken.aleo { ... }
+
+// Correct - program name should match project name
+program token.aleo { ... }
+```
+
+### Imported Program Not Found
+
+**Error:**
+```
+Error [ECMP6000000]: `main.aleo` imports `token.aleo`, but `token.aleo` is not found in program manifest
+```
+
+**Cause:** Missing dependency in `program.json`.
+
+**Solution:**
+```bash
+leo add token.aleo
+```
+
+### Illegal Static Member Assignment
+
+**Error:**
+```
+Error [ECMP6000000]: Tried to assign to static member
+```
+
+**Cause:** Attempting to modify a struct's static member.
+
+**Solution:**
+Static members cannot be modified. Use instance fields instead.
+
+## Common Runtime Issues
+
+### Assertion Failures
+
+**Error:**
+```
+Assertion failed in function
+```
+
+**Cause:** An `assert` statement evaluated to `false`.
+
+**Solution:**
+```leo
+// Add more descriptive assertions
+assert(amount > 0u64);  // Fails if amount is 0
+assert(sender != receiver);  // Fails if sender equals receiver
+
+// Debug by checking values
+let is_valid: bool = amount > 0u64;
+assert(is_valid);
+```
+
+### Arithmetic Overflow
+
+**Error:**
+Proof generation fails due to overflow.
+
+**Cause:** Arithmetic operation exceeds type bounds.
+
+**Solution:**
+```leo
+// Wrong - may overflow
+let x: u8 = 200u8;
+let y: u8 = 100u8;
+let sum: u8 = x + y;  // 300 > 255 (u8 max)
+
+// Correct - use larger type
+let x: u16 = 200u16;
+let y: u16 = 100u16;
+let sum: u16 = x + y;
+
+// Or check before operation
+assert(x <= 255u8 - y);
+let sum: u8 = x + y;
+```
+
+### Arithmetic Underflow
+
+**Error:**
+Proof generation fails due to underflow.
+
+**Cause:** Subtraction results in negative value for unsigned types.
+
+**Solution:**
+```leo
+// Wrong
+let x: u32 = 10u32;
+let y: u32 = 20u32;
+let diff: u32 = x - y;  // Would be negative
+
+// Correct - ensure x >= y
+assert(x >= y);
+let diff: u32 = x - y;
+
+// Or use signed integers
+let x: i32 = 10i32;
+let y: i32 = 20i32;
+let diff: i32 = x - y;  // -10i32
+```
+
+## Mapping Errors
+
+### Mapping Get Failure
+
+**Error:**
+Transaction fails when accessing non-existent key.
+
+**Cause:** Using `Mapping::get` on a key that doesn't exist.
+
+**Solution:**
+```leo
+// Wrong - fails if key doesn't exist
+let balance: u64 = Mapping::get(account, user);
+
+// Correct - use get_or_use with default
+let balance: u64 = Mapping::get_or_use(account, user, 0u64);
+```
+
+### Mapping Access Outside Finalizer
+
+**Error:**
+```
+Error: Mapping operations only allowed in finalizers
+```
+
+**Cause:** Attempting to access mappings in a regular function.
+
+**Solution:**
+```leo
+// Wrong
+fn get_balance(user: address) -> u64 {
+    return Mapping::get(account, user);  // Not allowed
+}
+
+// Correct - use finalizer
+fn get_balance(user: address) -> Final {
+    return final { finalize_get_balance(user); };
+}
+
+final fn finalize_get_balance(user: address) {
+    let balance: u64 = Mapping::get_or_use(account, user, 0u64);
+    // Use balance...
+}
+```
+
+## Build and CLI Issues
+
+### Command Not Found
+
+**Error:**
+```
+bash: leo: command not found
+```
+
+**Solution:**
+```bash
+# Install Leo
+cargo install leo-lang
+
+# Or build from source
+git clone https://github.com/ProvableHQ/leo
+cd leo
+cargo install --path crates/leo
+```
+
+### Build Fails
+
+**Error:**
+```
+Error: Failed to build project
+```
+
+**Solution:**
+```bash
+# Clean build directory
+rm -rf build/
+
+# Rebuild
+leo build
+
+# Check for syntax errors
+leo fmt --check
+```
+
+### Outdated Leo Version
+
+**Error:**
+```
+Error: Unsupported Leo version
+```
+
+**Solution:**
+```bash
+# Update Leo
+leo update
+
+# Or reinstall
+cargo install leo-lang --force
+```
+
+## Development Environment
+
+### Rust Version Issues
+
+**Error:**
+```
+Error: requires rustc 1.70 or newer
+```
+
+**Solution:**
+```bash
+# Update Rust
+rustup update
+
+# Check version
+rustc --version
+```
+
+### Formatting Issues
+
+**Error:**
+```
+Error: Code is not formatted
+```
+
+**Solution:**
+```bash
+# Format code
+leo fmt
+
+# Or with rustfmt
+cargo +nightly fmt --all
+```
+
+## Debugging Strategies
+
+### Enable Verbose Output
+
+```bash
+leo build --verbose
+leo run function_name --verbose
+```
+
+### Check Generated Aleo Code
+
+```bash
+leo build
+cat build/main.aleo
+```
+
+This helps identify:
+- How Leo compiles to Aleo instructions
+- Register allocation
+- Optimization results
+
+### Use Assertions for Debugging
+
+```leo
+// Add temporary assertions
+assert(x > 0u32);
+assert(sender != receiver);
+
+// Check intermediate values
+let intermediate: u32 = x + y;
+assert(intermediate < 1000u32);
+let result: u32 = intermediate * 2u32;
+```
+
+### Simplify Complex Functions
+
+Break down complex functions into smaller pieces:
+
+```leo
+// Instead of one large function
+fn complex_operation(a: u32, b: u32, c: u32) -> u32 {
+    return ((a + b) * c) / (a - b);
+}
+
+// Split into steps
+fn complex_operation(a: u32, b: u32, c: u32) -> u32 {
+    let sum: u32 = a + b;
+    let product: u32 = sum * c;
+    let diff: u32 = a - b;
+    assert(diff > 0u32);  // Prevent division by zero
+    let result: u32 = product / diff;
+    return result;
+}
+```
+
+## Getting Help
+
+### Check Documentation
+
+<CardGroup cols={2}>
+  <Card title="Language Reference" icon="book" href="/reference/grammar">
+    Complete syntax reference
+  </Card>
+  <Card title="Examples" icon="code" href="/examples/overview">
+    Working example programs
+  </Card>
+</CardGroup>
+
+### Community Support
+
+- **Discord**: [Join the Aleo Discord](https://discord.gg/aleo)
+- **GitHub Discussions**: [Leo Discussions](https://github.com/ProvableHQ/leo/discussions)
+- **GitHub Issues**: [Report bugs](https://github.com/ProvableHQ/leo/issues)
+
+### File a Bug Report
+
+When reporting issues, include:
+
+1. Leo version (`leo --version`)
+2. Operating system
+3. Complete error message
+4. Minimal reproducible example
+5. Expected vs actual behavior
+
+```bash
+# Get Leo version
+leo --version
+
+# Create minimal example
+leo new bug-report
+cd bug-report
+# Add minimal code that reproduces the issue
+```
+
+## Related Resources
+
+<CardGroup cols={2}>
+  <Card title="FAQ" icon="question" href="/resources/faq">
+    Frequently asked questions
+  </Card>
+  <Card title="Contributing" icon="git-branch" href="/resources/contributing">
+    Help improve Leo
+  </Card>
+</CardGroup>

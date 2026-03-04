@@ -1,80 +1,362 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quick Start
+description: Create, build, and run your first Leo program in minutes
 ---
 
-## Get started in three steps
+# Quick Start
 
-Get your documentation site running locally and make your first customization.
-
-### Step 1: Set up your local environment
-
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
-
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
-
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 3: Go live
-
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
-
-## Next steps
-
-Now that you have your docs running, explore these key features:
-
-<CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
-</CardGroup>
+This guide will walk you through creating your first Leo program. You'll learn how to create a new project, understand the project structure, write Leo code, and run your program.
 
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+Make sure you have [installed Leo](/installation) before continuing with this guide.
 </Note>
+
+## Create Your First Program
+
+<Steps>
+
+<Step title="Create a new Leo project">
+
+Use the Leo CLI to create a new project:
+
+```bash
+leo new helloworld
+```
+
+This creates a new directory called `helloworld` with a complete Leo project structure.
+
+</Step>
+
+<Step title="Navigate to the project directory">
+
+```bash
+cd helloworld
+```
+
+</Step>
+
+<Step title="Explore the project structure">
+
+Your new Leo project has the following structure:
+
+```
+helloworld/
+├── src/
+│   └── main.leo          # Your program source code
+├── program.json          # Program configuration
+└── README.md            # Project documentation
+```
+
+</Step>
+
+</Steps>
+
+## Understanding the Default Program
+
+Let's look at the default program created in `src/main.leo`:
+
+```leo
+program helloworld.aleo {
+    // The 'helloworld' main function.
+    fn main(public a: u32, b: u32) -> u32 {
+        return a + b;
+    }
+}
+```
+
+### Program Structure
+
+- **Program declaration**: `program helloworld.aleo` defines the program name
+- **Function**: `fn main` is the entry point of the program
+- **Parameters**: `a` and `b` are inputs (both public `u32` unsigned 32-bit integers)
+- **Return type**: `-> u32` specifies the function returns a 32-bit unsigned integer
+- **Logic**: The function simply adds the two inputs and returns the result
+
+<Info>
+All Leo programs must have the `.aleo` suffix in their program declaration.
+</Info>
+
+## Run Your Program
+
+Leo makes it easy to run your program with a single command:
+
+```bash
+leo run main 0u32 1u32
+```
+
+This command:
+1. Compiles the program into Aleo instructions
+2. Executes the `main` function with inputs `0u32` and `1u32`
+3. Displays the output
+
+<CodeGroup>
+
+```bash Output
+Leo ✅ Compiled 'helloworld.aleo' into Aleo instructions
+
+⛓  Constraints
+ - 'helloworld.aleo/main' - 0 constraints (0 public, 0 private)
+
+➡️  Output
+ - 1u32
+
+✅ Executed 'helloworld.aleo/main'
+```
+
+</CodeGroup>
+
+<Note>
+The `leo run` command automatically builds your program before running it, so you don't need to run `leo build` separately.
+</Note>
+
+## Try Different Inputs
+
+Let's experiment with different inputs:
+
+```bash
+leo run main 42u32 18u32
+```
+
+The output should be `60u32`.
+
+## Build Your Own Program
+
+Now let's modify the program to do something more interesting.
+
+<Steps>
+
+<Step title="Create a Fibonacci function">
+
+Edit `src/main.leo` to implement a Fibonacci calculator:
+
+```leo
+program helloworld.aleo {
+    // Calculate fibonacci number at position n
+    fn fibonacci(public n: u8) -> u128 {
+        assert(n <= 64u8);
+
+        let f0: u128 = 0u128;
+        let f1: u128 = 1u128;
+        let c: u8 = 0u8;
+
+        let z: u8 = reverse_bits(n);
+
+        for i:u8 in 0u8..8u8 {
+            if n > 0u8 {
+                let f2i1: u128 = f1 * f1 + f0 * f0;
+                let f2i: u128 = f0 * (2u128 * f1 - f0);
+                if z & 1u8.shl(c) == 0u8 {
+                    f0 = f2i;
+                    f1 = f2i1;
+                } else {
+                    f0 = f2i1;
+                    f1 = f2i + f2i1;
+                }
+                c = c + 1u8;
+                n = n >> 1u8;
+            }
+        }
+
+        return f0;
+    }
+}
+
+fn reverse_bits(n: u8) -> u8 {
+    let reverse: u8 = 0u8;
+
+    for i:u8 in 0u8..8u8 {
+        if n > 0u8 {
+            reverse = reverse << 1u8;
+
+            if n & 1u8 == 1u8 {
+                reverse ^= 1u8;
+            }
+
+            n = n >> 1u8;
+        }
+    }
+
+    return reverse;
+}
+```
+
+</Step>
+
+<Step title="Run the Fibonacci program">
+
+```bash
+leo run fibonacci 10u8
+```
+
+This calculates the 10th Fibonacci number.
+
+</Step>
+
+</Steps>
+
+## Understanding Leo Commands
+
+Here are the essential Leo CLI commands:
+
+<CodeGroup>
+
+```bash Create New Project
+leo new <PROJECT_NAME>
+```
+
+```bash Build Program
+leo build
+```
+
+```bash Run Function
+leo run <FUNCTION_NAME> <INPUTS>
+```
+
+```bash Run Tests
+leo test
+```
+
+```bash Deploy to Network
+leo deploy
+```
+
+```bash Format Code
+leo fmt
+```
+
+</CodeGroup>
+
+## Working with Different Data Types
+
+Leo supports various data types. Here's a more comprehensive example:
+
+```leo
+program datatypes.aleo {
+    record Token {
+        owner: address,
+        amount: u64,
+    }
+
+    // Create a new token record
+    fn mint(receiver: address, amount: u64) -> Token {
+        return Token {
+            owner: receiver,
+            amount: amount,
+        };
+    }
+
+    // Transfer tokens
+    fn transfer(sender: Token, receiver: address, amount: u64) -> (Token, Token) {
+        let difference: u64 = sender.amount - amount;
+
+        let remaining: Token = Token {
+            owner: sender.owner,
+            amount: difference,
+        };
+
+        let transferred: Token = Token {
+            owner: receiver,
+            amount: amount,
+        };
+
+        return (remaining, transferred);
+    }
+}
+```
+
+### Key Data Types
+
+- **Integers**: `u8`, `u16`, `u32`, `u64`, `u128`, `i8`, `i16`, `i32`, `i64`, `i128`
+- **Boolean**: `bool`
+- **Field elements**: `field`
+- **Group elements**: `group`
+- **Address**: `address`
+- **Records**: Custom data structures that represent program state
+
+<Info>
+Records in Leo are special data types that represent ownership and can be used to manage state privately on the Aleo blockchain.
+</Info>
+
+## Network Configuration
+
+When creating a new project, you can specify the network:
+
+```bash
+leo new myproject --network testnet --endpoint https://api.explorer.provable.com/v1
+```
+
+Available networks:
+- `testnet` (default)
+- `mainnet`
+- `canary`
+
+## Common Command Options
+
+### Run with specific network
+
+```bash
+leo run main 5u32 10u32 --network testnet
+```
+
+### Build with offline mode
+
+```bash
+leo build --offline
+```
+
+### Run with debug output
+
+```bash
+leo run main 1u32 2u32 --debug
+```
+
+### Quiet mode (suppress output)
+
+```bash
+leo run main 1u32 2u32 --quiet
+```
+
+## Next Steps
+
+Congratulations! You've just run your first Leo program. Here's what to explore next:
+
+<CardGroup cols={2}>
+  <Card title="Language Reference" icon="book" href="https://developer.aleo.org/leo/language">
+    Learn Leo syntax and language features
+  </Card>
+  <Card title="Example Programs" icon="code" href="/examples/overview">
+    Explore more complex Leo programs
+  </Card>
+  <Card title="Deploy Programs" icon="rocket" href="/cli/deploy">
+    Learn how to deploy to the Aleo network
+  </Card>
+  <Card title="Testing Guide" icon="flask" href="/development/testing">
+    Write tests for your Leo programs
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+### Program won't compile
+
+Make sure:
+- Your program name matches the directory name
+- All functions have proper type annotations
+- Syntax is correct (check semicolons, braces, etc.)
+
+### "Failed to execute" errors
+
+Common causes:
+- Incorrect input types (e.g., using `1` instead of `1u32`)
+- Wrong number of inputs
+- Input values that cause assertion failures
+
+### Network connection issues
+
+If you're having trouble connecting to the network:
+
+```bash
+leo run main 1u32 2u32 --endpoint http://localhost:3030
+```
+
+This uses a local endpoint instead of the default remote endpoint.

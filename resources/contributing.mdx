@@ -1,0 +1,682 @@
+---
+title: 'Contributing to Leo'
+description: 'Guidelines for contributing to the Leo programming language'
+---
+
+## Overview
+
+Thank you for your interest in contributing to Leo! This guide will help you get started with contributing to the Leo programming language and its ecosystem.
+
+<Info>
+The Leo compiler is written in Rust and follows strict coding standards to ensure reliability and security.
+</Info>
+
+## Getting Started
+
+### Prerequisites
+
+1. **Rust Toolchain**
+   ```bash
+   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+   rustup update
+   ```
+
+2. **Nightly Rust** (for formatting)
+   ```bash
+   rustup install nightly
+   ```
+
+3. **Git**
+   ```bash
+   git --version
+   ```
+
+### Fork and Clone
+
+1. Fork the repository on GitHub
+2. Clone your fork:
+   ```bash
+   git clone https://github.com/YOUR_USERNAME/leo
+   cd leo
+   ```
+
+3. Add upstream remote:
+   ```bash
+   git remote add upstream https://github.com/ProvableHQ/leo
+   ```
+
+### Build from Source
+
+```bash
+# Build all crates
+cargo build --release
+
+# Install leo CLI
+cargo install --path crates/leo
+
+# Verify installation
+leo --version
+```
+
+## Pull Request Process
+
+### Branch from Mainnet
+
+Ensure your branch is forked from the current `mainnet` branch:
+
+```bash
+git checkout mainnet
+git pull upstream mainnet
+git checkout -b feature/my-feature
+```
+
+### Making Changes
+
+1. **Write your code**
+   - Follow the coding conventions (see below)
+   - Add tests for new functionality
+   - Update documentation as needed
+
+2. **Format your code**
+   ```bash
+   cargo +nightly fmt --all
+   ```
+   
+   <Warning>
+   Formatting is enforced by a git hook. Commits will fail if code is not properly formatted.
+   </Warning>
+
+3. **Run clippy**
+   ```bash
+   cargo clippy -- -D warnings
+   ```
+   
+   All clippy warnings must be resolved.
+
+4. **Run tests**
+   ```bash
+   cargo test
+   ```
+
+### Commit Your Changes
+
+```bash
+git add .
+git commit -m "Add feature: description"
+git push origin feature/my-feature
+```
+
+### Create Pull Request
+
+1. Go to your fork on GitHub
+2. Click "New Pull Request"
+3. Fill out the PR template:
+   - Link related issues using keywords (e.g., "closes #130")
+   - Describe your changes
+   - Explain why the changes are needed
+   - List any breaking changes
+
+4. Wait for review
+   - Address feedback promptly
+   - Keep your branch up to date with mainnet
+   - Be patient and respectful
+
+## Coding Conventions
+
+### Style Guidelines
+
+#### Comments
+
+Prefer line comments (`//`) to block comments (`/* ... */`).
+
+**Good:**
+```rust
+// A comment on an item.
+struct Foo { ... }
+
+fn foo() {} // A comment after an item.
+
+pub fn foo(/* a comment before an argument */ x: T) {...}
+```
+
+**Comment Format:**
+- Complete sentences with capitalization and punctuation
+- Single space before and after inline block comments
+- No trailing whitespace
+
+#### Imports
+
+Imports should be:
+- Stated at the top of the file
+- Ordered alphabetically
+- Split into two sections:
+
+**Section 1: First-party imports**
+- `crate` imports
+- Leo crates (`leo_*`)
+- Aleo crates (e.g., `snarkvm`)
+
+**Section 2: Third-party imports**
+- Rust `std`
+- External dependencies
+
+**Example:**
+```rust
+use crate::Circuit;
+use leo_ast::IntegerType;
+use snarkvm::prelude::*;
+
+use serde::Serialize;
+use std::{
+    fmt,
+    sync::{Arc, Weak},
+};
+```
+
+`cargo fmt` will automatically sort imports within each section.
+
+## Performance and Memory Guidelines
+
+<Note>
+Leo is a large project. Following these guidelines helps ensure high performance and efficient memory usage.
+</Note>
+
+### Memory Handling
+
+#### Pre-allocate Collections
+
+**Good:**
+```rust
+let mut vec = Vec::with_capacity(100);
+let mut map = HashMap::with_capacity(50);
+```
+
+**Bad:**
+```rust
+let mut vec = Vec::new();  // Will reallocate multiple times
+```
+
+Pre-allocation reduces system calls and ensures optimal memory usage.
+
+#### Create Collections Just-in-Time
+
+**Good:**
+```rust
+fn process() {
+    // ... other work ...
+    
+    let mut results = Vec::with_capacity(10);
+    for item in items {
+        results.push(process_item(item));
+    }
+    results
+}
+```
+
+**Bad:**
+```rust
+fn process() {
+    let mut results = Vec::with_capacity(10);  // Created too early
+    
+    // ... lots of other work ...
+    // (results occupies memory unnecessarily)
+    
+    for item in items {
+        results.push(process_item(item));
+    }
+    results
+}
+```
+
+#### Use Iterators
+
+Avoid intermediate vectors when possible:
+
+**Good:**
+```rust
+fn process(items: &[Item]) -> impl Iterator<Item = Result> + '_ {
+    items.iter().map(|item| process_item(item))
+}
+```
+
+**Bad:**
+```rust
+fn process(items: &[Item]) -> Vec<Result> {
+    items.iter()
+        .map(|item| process_item(item))
+        .collect()  // Unnecessary allocation if caller just iterates
+}
+```
+
+#### Bulk Operations
+
+**Good:**
+```rust
+vec![x; 100]  // Creates vector with 100 copies of x
+vec.resize(100, x);  // Resizes in one operation
+```
+
+**Bad:**
+```rust
+for _ in 0..100 {
+    vec.push(x.clone());  // Many individual operations
+}
+```
+
+#### Pass by Value When Consumed
+
+**Good:**
+```rust
+fn consume(value: BigStruct) {
+    // value is moved in, no clone needed
+    do_something(value);
+}
+```
+
+**Bad:**
+```rust
+fn consume(value: &BigStruct) {
+    // Caller has to clone if they want to pass ownership
+    do_something(value.clone());
+}
+```
+
+Pass by value when the function will consume the argument.
+
+#### Use Copy-on-Write
+
+For slices that may or may not need extending:
+
+```rust
+use std::borrow::Cow;
+
+fn maybe_extend(slice: &[u8], extend: bool) -> Cow<'_, [u8]> {
+    if extend {
+        let mut vec = slice.to_vec();
+        vec.push(0);
+        Cow::Owned(vec)
+    } else {
+        Cow::Borrowed(slice)
+    }
+}
+```
+
+This avoids allocation when extension isn't needed.
+
+#### Prefer Arrays and Slices
+
+**Good:**
+```rust
+let arr: [u8; 32] = [0; 32];  // Stack-allocated
+let slice: &[u8] = &[1, 2, 3];  // No allocation
+```
+
+**Bad:**
+```rust
+let vec: Vec<u8> = vec![0; 32];  // Heap-allocated
+```
+
+Use arrays when size is known and not too large.
+
+#### Avoid Unnecessary Clones
+
+**Good:**
+```rust
+fn get_name(&self) -> &str {
+    &self.name
+}
+```
+
+**Bad:**
+```rust
+fn get_name(&self) -> String {
+    self.name.clone()  // Unnecessary allocation
+}
+```
+
+#### Use into_iter() Over iter().cloned()
+
+**Good:**
+```rust
+let values: Vec<_> = vec.into_iter().collect();
+```
+
+**Bad:**
+```rust
+let values: Vec<_> = vec.iter().cloned().collect();
+```
+
+When you can consume the collection, `into_iter()` avoids clones.
+
+#### Reuse Collections
+
+**Good:**
+```rust
+let mut buffer = Vec::with_capacity(100);
+for _ in 0..10 {
+    buffer.clear();
+    // ... fill buffer ...
+    process(&buffer);
+}
+```
+
+**Bad:**
+```rust
+for _ in 0..10 {
+    let mut buffer = Vec::with_capacity(100);  // Reallocates each time
+    // ... fill buffer ...
+    process(&buffer);
+}
+```
+
+#### Box Large Enum Variants
+
+**Good:**
+```rust
+enum Token {
+    Small(u32),
+    Large(Box<LargeStruct>),  // Boxed to keep enum size reasonable
+}
+```
+
+**Bad:**
+```rust
+enum Token {
+    Small(u32),
+    Large(LargeStruct),  // Makes entire enum large
+}
+```
+
+### Performance
+
+#### Avoid format!()
+
+**Good:**
+```rust
+let s = value.to_string();
+```
+
+**Bad:**
+```rust
+let s = format!("{}", value);  // Slower than to_string()
+```
+
+#### Check-Then-Insert Pattern
+
+**Good:**
+```rust
+use std::collections::hash_map::Entry;
+
+match map.entry(key) {
+    Entry::Vacant(e) => { e.insert(value); },
+    Entry::Occupied(_) => { /* already exists */ },
+}
+```
+
+**Bad:**
+```rust
+if !map.contains_key(&key) {
+    map.insert(key, value);  // Double lookup
+}
+```
+
+#### Use Slice Types in Parameters
+
+**Good:**
+```rust
+fn process(items: &[Item]) { ... }  // Accepts Vec, array, slice
+fn process_str(s: &str) { ... }     // Accepts String, &str
+fn process_path(p: &Path) { ... }   // Accepts PathBuf, &Path
+```
+
+**Bad:**
+```rust
+fn process(items: &Vec<Item>) { ... }    // Only accepts Vec
+fn process_str(s: &String) { ... }       // Only accepts String
+fn process_path(p: &PathBuf) { ... }     // Only accepts PathBuf
+```
+
+#### Custom PartialEq and Hash
+
+For structs with distinctive fields:
+
+```rust
+struct User {
+    id: u64,
+    name: String,
+    email: String,
+}
+
+impl PartialEq for User {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id  // Only compare ID
+    }
+}
+
+impl Hash for User {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id.hash(state);  // Only hash ID
+    }
+}
+```
+
+This makes comparisons and hashing much faster.
+
+## Testing
+
+### Run Tests
+
+```bash
+# Run all tests
+cargo test
+
+# Run specific crate tests
+cargo test -p leo-parser
+
+# Run with filter
+TEST_FILTER=loop cargo test
+
+# Update expectations
+UPDATE_EXPECT=1 cargo test
+```
+
+### Write Tests
+
+For new features, add tests in `tests/tests/` with expectations in `tests/expectations/`:
+
+```rust
+#[test]
+fn test_new_feature() {
+    // Test code here
+}
+```
+
+### Test Framework
+
+Leo uses expectation testing:
+- Tests in `tests/tests/{category}/`
+- Expected outputs in `tests/expectations/{category}/`
+- Run `UPDATE_EXPECT=1 cargo test` to update expectations
+
+## Validation Checklist
+
+Before submitting your PR, ensure:
+
+- [ ] Code compiles: `cargo check --all`
+- [ ] No clippy warnings: `cargo clippy -- -D warnings`
+- [ ] Code is formatted: `cargo +nightly fmt --check`
+- [ ] All tests pass: `cargo test`
+- [ ] Documentation is updated
+- [ ] Commit messages are descriptive
+- [ ] PR description is complete
+
+## Code Review
+
+### Review Checklist
+
+Reviewers will check:
+
+**Correctness:**
+- Logic is sound
+- Edge cases are handled
+- No panics in production code
+- Error handling is appropriate
+
+**Compiler-Specific:**
+- Spans are preserved for error reporting
+- NodeIDs are assigned correctly
+- Pass ordering is respected
+- Generated Aleo instructions are valid
+
+**Performance:**
+- No unnecessary allocations
+- Pre-allocation where size is known
+- No unnecessary clones
+- Efficient iterators
+
+**Security:**
+- Input validation at boundaries
+- No information leakage
+- Fail-closed on uncertainty
+
+## Architecture Overview
+
+Leo compilation pipeline:
+
+```
+Source (.leo)
+  ↓
+Lexer (logos)
+  ↓
+Rowan Parse Tree
+  ↓
+AST
+  ↓
+Passes:
+  - Type Checking
+  - Loop Unrolling
+  - Optimization
+  - Code Generation
+  ↓
+Aleo Instructions
+```
+
+### Key Crates
+
+- **leo-span**: Source locations and spans
+- **leo-errors**: All error types
+- **leo-ast**: AST node definitions
+- **leo-parser-rowan**: Lexer and parser
+- **leo-parser**: Rowan to AST conversion
+- **leo-passes**: Compiler passes (~25 passes)
+- **leo-compiler**: Orchestrates compilation
+- **leo-package**: Project structure
+- **leo-fmt**: Code formatter
+
+For more details, see `AGENTS.md` in the repository.
+
+## Git Workflow
+
+### Commit Messages
+
+Write clear, descriptive commit messages:
+
+**Good:**
+```
+Add support for nested tuple destructuring
+
+Implements destructuring for tuples nested within tuples.
+Closes #123.
+```
+
+**Bad:**
+```
+fix bug
+```
+
+### Squashing Commits
+
+Maintainers may ask you to squash commits:
+
+```bash
+git rebase -i HEAD~3  # Squash last 3 commits
+```
+
+### Keeping Up to Date
+
+```bash
+git fetch upstream
+git rebase upstream/mainnet
+```
+
+## Getting Help
+
+### Discord
+
+Join the [Aleo Discord](https://discord.gg/aleo) for:
+- Questions about contributing
+- Discussion of proposed changes
+- Community support
+
+### GitHub Discussions
+
+Use [GitHub Discussions](https://github.com/ProvableHQ/leo/discussions) for:
+- Feature proposals
+- Design discussions
+- General questions
+
+### Office Hours
+
+Check the Discord for community office hours and developer meetups.
+
+## What to Contribute
+
+### Good First Issues
+
+Look for issues labeled `good first issue` on GitHub:
+- https://github.com/ProvableHQ/leo/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22
+
+### Ideas
+
+- Bug fixes
+- Documentation improvements
+- Example programs
+- Test coverage
+- Performance optimizations
+- Error message improvements
+- Developer tooling
+
+### What Requires Approval
+
+Before starting work on these, open an issue for discussion:
+- New crates
+- New dependencies
+- New abstractions or traits
+- New error types
+- Breaking changes
+- Major refactors
+
+## License
+
+By contributing to Leo, you agree that your contributions will be licensed under the GNU General Public License v3.0.
+
+## Code of Conduct
+
+Be respectful, professional, and constructive:
+- Respect differing viewpoints
+- Accept constructive criticism gracefully
+- Focus on what's best for the community
+- Show empathy towards others
+
+## Related Resources
+
+<CardGroup cols={2}>
+  <Card title="GitHub Repository" icon="github" href="https://github.com/ProvableHQ/leo">
+    Leo source code
+  </Card>
+  <Card title="Discord Community" icon="discord" href="https://discord.gg/aleo">
+    Join the discussion
+  </Card>
+</CardGroup>
+
+Thank you for contributing to Leo!

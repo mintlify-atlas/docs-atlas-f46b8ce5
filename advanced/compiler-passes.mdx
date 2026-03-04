@@ -1,0 +1,686 @@
+---
+title: Compiler Passes
+description: Comprehensive guide to all Leo compiler passes including type checking, loop unrolling, SSA, flattening, and code generation
+---
+
+The Leo compiler applies approximately 25 sequential transformation passes to convert the Abstract Syntax Tree (AST) into Aleo bytecode. Each pass maintains specific invariants and prepares the AST for subsequent transformations.
+
+<Info>
+All passes implement the `Pass` trait with a `do_pass(input, state) -> Result<Output>` method. They are executed sequentially through `CompilerState` in `leo-compiler/src/compiler.rs:186-247`.
+</Info>
+
+## Pass Overview
+
+The complete pass sequence from `leo-compiler/src/compiler.rs`:
+
+```rust
+pub fn intermediate_passes(&mut self) -> Result<(leo_abi::Program, IndexMap<String, leo_abi::Program>)> {
+    self.do_pass::<NameValidation>(())?;
+    self.do_pass::<GlobalVarsCollection>(())?;
+    self.do_pass::<PathResolution>(())?;
+    self.do_pass::<GlobalItemsCollection>(())?;
+    self.do_pass::<CheckInterfaces>(())?;
+    self.do_pass::<TypeChecking>(type_checking_config)?;
+    self.do_pass::<Disambiguate>(())?;
+    self.do_pass::<ProcessingAsync>(type_checking_config)?;
+    self.do_pass::<StaticAnalyzing>(())?;
+    self.do_pass::<ConstPropUnrollAndMorphing>(type_checking_config)?;
+    let abis = self.generate_abi();
+    self.do_pass::<StorageLowering>(type_checking_config)?;
+    self.do_pass::<OptionLowering>(type_checking_config)?;
+    self.do_pass::<SsaForming>(SsaFormingInput { rename_defs: true })?;
+    self.do_pass::<Destructuring>(())?;
+    self.do_pass::<SsaForming>(SsaFormingInput { rename_defs: false })?;
+    self.do_pass::<WriteTransforming>(())?;
+    self.do_pass::<SsaForming>(SsaFormingInput { rename_defs: false })?;
+    self.do_pass::<Flattening>(())?;
+    self.do_pass::<FunctionInlining>(())?;
+    self.do_pass::<SsaForming>(SsaFormingInput { rename_defs: false })?;
+    self.do_pass::<SsaConstPropagation>(())?;
+    self.do_pass::<SsaForming>(SsaFormingInput { rename_defs: false })?;
+    self.do_pass::<CommonSubexpressionEliminating>(())?;
+    let output = self.do_pass::<DeadCodeEliminating>(())?;
+    self.statements_before_dce = output.statements_before;
+    self.statements_after_dce = output.statements_after;
+    Ok(abis)
+}
+```
+
+## Analysis and Validation Passes
+
+### 1. NameValidation
+
+**Purpose**: Validates that all identifiers follow Leo naming rules and checks for reserved keywords.
+
+**Checks**:
+- Function names, variable names, type names are valid identifiers
+- No use of reserved keywords as identifiers
+- No shadowing of built-in types
+
+**Example Error**:
+```leo
+function self() -> u32 { ... }  // Error: 'self' is a reserved keyword
+```
+
+### 2. GlobalVarsCollection
+
+**Purpose**: Collects all global constants and mappings into the symbol table.
+
+**What It Does**:
+- Traverses top-level declarations
+- Populates `CompilerState.symbol_table` with global definitions
+- Validates global variable uniqueness
+
+### 3. PathResolution
+
+**Purpose**: Resolves import paths and external program references.
+
+**What It Does**:
+- Maps import statements to program stubs
+- Resolves qualified identifiers (e.g., `token.aleo/Token`)
+- Validates that imported programs exist
+
+### 4. GlobalItemsCollection
+
+**Purpose**: Collects all functions, structs, and records into the symbol table.
+
+**Symbol Table Structure**:
+```rust
+pub struct SymbolTable {
+    functions: IndexMap<Location, FunctionSymbol>,
+    structs: IndexMap<Location, StructSymbol>,
+    records: IndexMap<Location, RecordSymbol>,
+    // ...
+}
+```
+
+### 5. CheckInterfaces
+
+**Purpose**: Validates that program interfaces match their declarations.
+
+**Checks**:
+- Record types have correct fields and visibilities
+- Mapping types are valid
+- Function signatures match between declaration and implementation
+
+### 6. TypeChecking
+
+**Location**: `leo-passes/src/type_checking/mod.rs:76-126`
+
+**Purpose**: Comprehensive type checking and semantic validation.
+
+**What It Does**:
+- Infers types for all expressions
+- Validates type compatibility in operations
+- Builds the composite graph (struct/record dependencies)
+- Builds the call graph (function call relationships)
+- Enforces network limits (array sizes, function counts, etc.)
+
+**Network Limits** (`leo-passes/src/type_checking/mod.rs:36-74`):
+```rust
+pub struct TypeCheckingInput {
+    pub max_array_elements: usize,  // e.g., 2^15 for MainnetV0
+    pub max_mappings: usize,
+    pub max_functions: usize,
+    pub max_inputs: usize,
+    pub max_outputs: usize,
+}
+```
+
+**Composite Graph**: Tracks which structs/records reference each other, enabling topological ordering for code generation.
+
+**Call Graph**: Tracks function call relationships, used for:
+- Inline function selection
+- Dead code elimination
+- Cycle detection (Leo prohibits recursive functions)
+
+<Warning>
+Type checking constructs the composite graph and call graph. All subsequent passes depend on these being correctly populated.
+</Warning>
+
+### 7. Disambiguate
+
+**Purpose**: Resolves ambiguous references to ensure every identifier has a unique binding.
+
+### 8. ProcessingAsync
+
+**Purpose**: Validates async/await usage and transforms async functions.
+
+**Checks**:
+- Async functions only used in appropriate contexts
+- Await expressions only in async blocks
+- Finalize blocks have correct structure
+
+### 9. StaticAnalyzing
+
+**Purpose**: Performs static analysis to detect potential issues.
+
+**Checks**:
+- Unreachable code
+- Unused variables (warnings)
+- Infinite loops
+- Division by zero in constant expressions
+
+## Optimization Passes
+
+### 10. ConstPropUnrollAndMorphing
+
+**Location**: `leo-passes/src/const_prop_unroll_and_morphing.rs:34-46`
+
+**Purpose**: Iteratively applies const propagation, loop unrolling, and monomorphization until a fixed point is reached.
+
+**Structure**:
+```rust
+pub fn do_pass(input: Self::Input, state: &mut CompilerState) -> Result<Self::Output> {
+    const LARGE_LOOP_BOUND: usize = 1024usize;
+    
+    for _ in 0..LARGE_LOOP_BOUND {
+        let loop_unroll_output = Unrolling::do_pass((), state)?;
+        let const_prop_output = ConstPropagation::do_pass((), state)?;
+        let remove_unreachable_output = RemoveUnreachable::do_pass((), state)?;
+        let monomorphization_output = Monomorphization::do_pass((), state)?;
+        
+        // Rebuild symbol table
+        state.symbol_table.reset_but_consts();
+        GlobalVarsCollection::do_pass((), state)?;
+        PathResolution::do_pass((), state)?;
+        GlobalItemsCollection::do_pass((), state)?;
+        
+        // Re-run type checking
+        TypeChecking::do_pass(input.clone(), state)?;
+        
+        // Check for fixed point
+        if !const_prop_output.changed
+            && !loop_unroll_output.loop_unrolled
+            && !monomorphization_output.changed
+            && !remove_unreachable_output.changed {
+            break;
+        }
+    }
+}
+```
+
+<Note>
+This meta-pass runs up to 1024 iterations to handle interdependent transformations. Most programs reach a fixed point in 2-3 iterations.
+</Note>
+
+#### Constant Propagation
+
+**Purpose**: Evaluates constant expressions at compile time.
+
+**What It Does**:
+- Folds constant arithmetic (`2u32 + 3u32` → `5u32`)
+- Evaluates constant conditionals
+- Resolves const generic parameters
+
+**Example**:
+```leo
+const N: u32 = 10u32;
+let array: [u32; N] = [0u32; N];
+// After const propagation:
+let array: [u32; 10u32] = [0u32; 10u32];
+```
+
+#### Loop Unrolling
+
+**Location**: `leo-passes/src/loop_unrolling/mod.rs:39-56`
+
+**Purpose**: Unrolls loops with statically known bounds.
+
+**What It Does**:
+- Detects loops with constant iteration counts
+- Replicates loop body for each iteration
+- Renames variables to maintain SSA form
+
+**Example**:
+```leo
+// Before:
+for i: u32 in 0u32..3u32 {
+    sum += i;
+}
+
+// After unrolling:
+sum += 0u32;
+sum += 1u32;
+sum += 2u32;
+```
+
+<Warning>
+Loops with non-constant bounds cannot be unrolled and will cause a compilation error. Leo does not support dynamic loops in ZK circuits.
+</Warning>
+
+#### Monomorphization
+
+**Location**: `leo-passes/src/monomorphization/mod.rs:17-106`
+
+**Purpose**: Instantiates const generic functions and types with concrete values.
+
+**Example**:
+```leo
+// Generic function
+inline foo::[N: u32]() -> u32 {
+    return N;
+}
+
+transition main() -> u32 {
+    return foo::[3u32]() + foo::[7u32]();
+}
+
+// After monomorphization, generates two functions:
+inline foo__3() -> u32 {
+    return 3u32;
+}
+
+inline foo__7() -> u32 {
+    return 7u32;
+}
+
+transition main() -> u32 {
+    return foo__3() + foo__7();
+}
+```
+
+**Output** (`leo-passes/src/monomorphization/mod.rs:58-69`):
+```rust
+pub struct MonomorphizationOutput {
+    pub unresolved_calls: Vec<CallExpression>,
+    pub unresolved_composite_exprs: Vec<CompositeExpression>,
+    pub unresolved_composite_types: Vec<CompositeType>,
+    pub changed: bool,
+}
+```
+
+### ABI Generation
+
+**Location**: `leo-compiler/src/compiler.rs:251-276`
+
+**Purpose**: Generates Application Binary Interface definitions after monomorphization.
+
+**Timing**: ABIs are captured immediately after monomorphization to ensure all const generic types are resolved to concrete types.
+
+```rust
+fn generate_abi(&self) -> (leo_abi::Program, IndexMap<String, leo_abi::Program>) {
+    let primary_abi = leo_abi::generate(&self.state.ast.ast);
+    
+    let import_abis: IndexMap<String, leo_abi::Program> = self
+        .state.ast.ast.stubs
+        .iter()
+        .map(|(name, stub)| {
+            let abi = match stub {
+                Stub::FromLeo { program, .. } => leo_abi::generate(program),
+                Stub::FromAleo { program, .. } => leo_abi::aleo::generate(program),
+            };
+            (name.to_string(), abi)
+        })
+        .collect();
+    
+    (primary_abi, import_abis)
+}
+```
+
+### 11. StorageLowering
+
+**Purpose**: Transforms high-level storage operations (mappings) into low-level primitives.
+
+### 12. OptionLowering
+
+**Purpose**: Transforms `Option<T>` types into explicit tagged unions for circuit representation.
+
+## Static Single Assignment (SSA) Passes
+
+### 13. SsaForming (Multiple Applications)
+
+**Location**: `leo-passes/src/static_single_assignment/mod.rs:17-94`
+
+**Purpose**: Converts the AST into Static Single Assignment form.
+
+**What It Does**:
+- Each variable is assigned exactly once
+- Introduces phi nodes for control flow merges
+- Simplifies complex expressions into sequences of assignments
+
+**Example** (`leo-passes/src/static_single_assignment/mod.rs:22-50`):
+```leo
+// Before SSA:
+function main(flag: u8, value: u8) -> u8 {
+    if (flag == 0u8) {
+        value += 1u8;
+        return value;
+    } else {
+        value += 2u8;
+    }
+    return value;
+}
+
+// After SSA:
+function main(flag: u8, value: u8) -> u8 {
+    $var$0 = flag == 0u8;
+    if ($var$0) {
+        $var$1 = value + 1u8;
+        value$1 = $var$1;
+        return value$1;
+    } else {
+        $var$2 = value + 2u8;
+        value$2 = $var$2;
+    }
+    value$3 = $var$0 ? value$1 : value$2;  // Phi node as ternary
+    return value$3;
+}
+```
+
+**Configuration**:
+```rust
+pub struct SsaFormingInput {
+    pub rename_defs: bool,  // Whether to rename variable definitions
+}
+```
+
+SSA is applied multiple times:
+1. **First pass** (`rename_defs: true`): Initial SSA construction
+2. **After Destructuring** (`rename_defs: false`): Restore SSA after tuple unpacking
+3. **After WriteTransforming** (`rename_defs: false`): Restore SSA after write operations
+4. **After Flattening** (`rename_defs: false`): Restore SSA after control flow flattening
+5. **After SsaConstPropagation** (`rename_defs: false`): Final SSA restoration
+
+<Info>
+SSA form simplifies optimization passes by ensuring each variable has a single definition point. This enables more aggressive optimizations like constant propagation and dead code elimination.
+</Info>
+
+### 14. Destructuring
+
+**Purpose**: Expands tuple destructuring into individual assignments.
+
+**Example**:
+```leo
+// Before:
+let (a, b, c) = get_tuple();
+
+// After destructuring:
+let $tmp$0 = get_tuple();
+let a = $tmp$0.0;
+let b = $tmp$0.1;
+let c = $tmp$0.2;
+```
+
+### 15. WriteTransforming
+
+**Purpose**: Transforms write operations to maintain SSA invariants.
+
+## Control Flow Transformation
+
+### 16. Flattening
+
+**Location**: `leo-passes/src/flattening/mod.rs:17-89`
+
+**Purpose**: Converts control flow into straight-line code using ternary expressions.
+
+**What It Does**:
+- Eliminates `if` statements by executing both branches
+- Uses ternary operators to select between branch results
+- Consolidates multiple return statements into a single return
+- Does not transform async functions (they maintain control flow)
+
+**Example** (`leo-passes/src/flattening/mod.rs:23-52`):
+```leo
+// Before flattening (after SSA):
+function main(flag: u8, value: u8) -> u8 {
+    $var$0 = flag == 0u8;
+    if ($var$0) {
+        $var$1 = value + 1u8;
+        value$1 = $var$1;
+        return value$1;
+    } else {
+        $var$2 = value + 2u8;
+        value$2 = $var$2;
+    }
+    value$3 = $var$0 ? value$1 : value$2;
+    return value$3;
+}
+
+// After flattening:
+function main(flag: u8, value: u8) -> u8 {
+    $var$0 = flag == 0u8;
+    $var$1 = value + 1u8;
+    value$1 = $var$1;
+    $var$2 = value + 2u8;
+    value$2 = $var$2;
+    value$3 = $var$0 ? value$1 : value$2;
+    ret$4 = $var$0 ? value$1 : value$3;
+    return ret$4;
+}
+```
+
+<Note>
+Flattening is essential for ZK circuits, which cannot represent dynamic control flow. All paths are executed, and ternary operators select the correct result.
+</Note>
+
+### 17. FunctionInlining
+
+**Purpose**: Inlines function calls marked with `inline` keyword.
+
+**What It Does**:
+- Replaces `inline` function calls with the function body
+- Renames variables to avoid conflicts
+- Eliminates function call overhead
+
+**Criteria for Inlining**:
+- Function explicitly marked `inline`
+- Function not called too many times (to avoid code bloat)
+- Function not recursive
+
+### 18. SsaConstPropagation
+
+**Purpose**: Performs constant propagation specifically on SSA form.
+
+**What It Does**:
+- Leverages SSA's single-assignment property
+- Propagates constant values through ternary expressions
+- More aggressive than regular constant propagation
+
+## Final Optimization Passes
+
+### 19. CommonSubexpressionEliminating
+
+**Purpose**: Eliminates redundant computations.
+
+**What It Does**:
+- Identifies expressions computed multiple times
+- Reuses previously computed values
+- Introduces temporary variables for common subexpressions
+
+**Example**:
+```leo
+// Before:
+let a = x * y + z;
+let b = x * y + w;
+
+// After CSE:
+let $tmp$0 = x * y;
+let a = $tmp$0 + z;
+let b = $tmp$0 + w;
+```
+
+### 20. DeadCodeEliminating
+
+**Location**: `leo-passes/src/dead_code_elimination/mod.rs:17-94`
+
+**Purpose**: Removes unused code and variables.
+
+**What It Does**:
+- Identifies unused variable assignments
+- Removes assignments that don't contribute to outputs
+- Tracks statement count before and after elimination
+
+**Example** (`leo-passes/src/dead_code_elimination/mod.rs:23-46`):
+```leo
+// Before:
+function main(flag: u8, value: u8) -> u8 {
+    $var$0 = flag == 0u8;
+    $var$4$5 = value * value;
+    $var$1 = $var$4$5;
+    value$2 = $var$1;
+    value$3 = $var$0 ? value$2 : value;
+    value$6 = $var$1 * $var$1;  // UNUSED!
+    return value$3;
+}
+
+// After DCE:
+function main(flag: u8, value: u8) -> u8 {
+    $var$0 = flag == 0u8;
+    $var$4$5 = value * value;
+    $var$1 = $var$4$5;
+    value$2 = $var$1;
+    value$3 = $var$0 ? value$2 : value;
+    return value$3;
+}
+```
+
+**Output**:
+```rust
+pub struct DeadCodeEliminatingOutput {
+    pub statements_before: u32,
+    pub statements_after: u32,
+}
+```
+
+**Invariants Required**:
+- No shadowing (enforced by earlier passes)
+- Unique variable names (provided by SSA)
+- Flattened code (provided by flattening pass)
+
+## Code Generation Pass
+
+### 21. CodeGenerating
+
+**Location**: `leo-passes/src/code_generation/mod.rs:40-66`
+
+**Purpose**: Generates Aleo bytecode from the fully transformed AST.
+
+**Structure**:
+```rust
+pub struct CodeGeneratingVisitor<'a> {
+    state: &'a mut CompilerState,
+    next_register: u64,
+    current_function: Option<String>,
+    variable_mapping: IndexMap<Symbol, AleoReg>,
+    composite_mapping: IndexMap<Symbol, AleoType>,
+    global_mapping: IndexMap<Symbol, AleoExpr>,
+    variant: Option<String>,
+    program: &'a Program,
+    program_id: Option<ProgramId>,
+    finalize_caller: Option<Symbol>,
+    next_label: u64,
+    conditional_depth: u32,
+    internal_record_inputs: IndexSet<Symbol>,
+}
+```
+
+**Aleo Program Structure** (`leo-passes/src/code_generation/mod.rs:69-92`):
+```rust
+pub struct AleoProgram {
+    imports: Vec<String>,
+    program_id: ProgramId,
+    data_types: Vec<AleoDatatype>,  // Structs and records
+    mappings: Vec<AleoMapping>,
+    functions: Vec<AleoFunctional>,  // Functions, closures, finalizes
+    constructor: Option<AleoConstructor>,
+}
+```
+
+**Output Format**:
+```aleo
+import token.aleo;
+
+program myprogram.aleo;
+
+struct Point:
+    x as u32;
+    y as u32;
+
+function main:
+    input r0 as u32.public;
+    input r1 as u32.private;
+    add r0 r1 into r2;
+    output r2 as u32.private;
+```
+
+### Aleo Instruction Set
+
+The code generator emits the following instruction types (`leo-passes/src/code_generation/mod.rs:371-431`):
+
+**Arithmetic**: `add`, `sub`, `mul`, `div`, `rem`, `pow`, `abs`, `neg`
+
+**Wrapped Arithmetic**: `add.w`, `sub.w`, `mul.w`, `div.w` (modular arithmetic)
+
+**Comparison**: `is.eq`, `is.neq`, `gt`, `gte`, `lt`, `lte`
+
+**Logical**: `and`, `or`, `not`, `xor`, `nand`, `nor`
+
+**Bitwise**: `shl`, `shr`, `shl.w`, `shr.w`
+
+**Control Flow**: `ternary`, `branch.eq`, `position`
+
+**Cryptographic**: `commit`, `hash`, `sign.verify`, `ecdsa.verify`
+
+**Mapping Operations**: `get`, `get.or_use`, `set`, `remove`, `contains`
+
+**Special**: `cast`, `call`, `async`, `await`, `rand.chacha`
+
+<Info>
+Every Leo expression maps to one or more Aleo instructions. The code generator maintains a register allocator to track temporary values.
+</Info>
+
+## Pass Invariants
+
+Each pass maintains and depends on specific invariants:
+
+| Pass | Establishes | Requires |
+|------|-------------|----------|
+| NameValidation | Valid identifiers | AST parsed |
+| TypeChecking | Type annotations, composite graph, call graph | Symbol table populated |
+| SSA | Single assignment | Type-checked AST |
+| Flattening | No control flow | SSA form |
+| FunctionInlining | No inline functions | Flattened code |
+| DeadCodeEliminating | No dead assignments | SSA form, flattened code |
+| CodeGenerating | Aleo bytecode | All transformations complete |
+
+<Warning>
+**Pass Ordering is Critical**: Violating pass dependencies will result in incorrect compilation or internal compiler errors. The order in `intermediate_passes()` has been carefully designed.
+</Warning>
+
+## Debugging Passes
+
+### Enable AST Snapshots
+
+To debug a specific pass, enable AST snapshots:
+
+```rust
+let compiler_options = CompilerOptions {
+    ast_snapshots: AstSnapshots::Some(vec!["TypeChecking", "Flattening"]),
+    ast_spans_enabled: true,
+    initial_ast: true,
+};
+```
+
+This generates:
+- `program_name.initial.json`
+- `program_name.TypeChecking.json`
+- `program_name.Flattening.json`
+
+### Pass Testing
+
+Test passes in isolation:
+
+```bash
+# Test specific pass
+cargo test -p leo-passes -- type_checking
+
+# Test with filter
+TEST_FILTER=loop_unroll cargo test -p leo-passes
+```
+
+## Related Resources
+
+- [Compiler Architecture](/advanced/compiler-architecture) - Overall compiler design
+- [Zero-Knowledge Concepts](/advanced/zero-knowledge-concepts) - How passes enable ZK compilation
+- [Optimization](/advanced/optimization) - Performance tuning techniques

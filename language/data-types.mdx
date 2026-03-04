@@ -1,0 +1,414 @@
+---
+title: Data Types
+description: Comprehensive guide to Leo's type system including primitive and composite types
+---
+
+## Type System Overview
+
+Leo is a statically-typed language where every variable, function parameter, and expression has a known type at compile time. The type system ensures safety and correctness in zero-knowledge applications.
+
+## Primitive Types
+
+### Integer Types
+
+Leo supports both unsigned and signed integers with various bit widths:
+
+<Tabs>
+  <Tab title="Unsigned">
+    ```leo
+    let a: u8 = 255u8;       // 8-bit: 0 to 255
+    let b: u16 = 65535u16;   // 16-bit: 0 to 65,535
+    let c: u32 = 100u32;     // 32-bit: 0 to 4,294,967,295
+    let d: u64 = 1000u64;    // 64-bit: 0 to 18,446,744,073,709,551,615
+    let e: u128 = 5000u128;  // 128-bit: 0 to 2^128 - 1
+    ```
+  </Tab>
+  
+  <Tab title="Signed">
+    ```leo
+    let a: i8 = -128i8;      // 8-bit: -128 to 127
+    let b: i16 = -1000i16;   // 16-bit: -32,768 to 32,767
+    let c: i32 = 100i32;     // 32-bit: -2^31 to 2^31 - 1
+    let d: i64 = -5000i64;   // 64-bit: -2^63 to 2^63 - 1
+    let e: i128 = 10000i128; // 128-bit: -2^127 to 2^127 - 1
+    ```
+  </Tab>
+</Tabs>
+
+<Note>
+Integer literals can include underscores for readability: `1_000_000u64` is equivalent to `1000000u64`.
+</Note>
+
+### Address Type
+
+The `address` type represents Aleo account addresses:
+
+```leo
+let recipient: address = aleo1qnr4dkkvkgfqph0vzc3y6z2eu975wnpz2925ntjccd5cfqxtyu8s7pyjh9;
+let sender: address = self.caller;
+```
+
+Addresses can also use `.aleo` domain syntax:
+
+```leo
+let addr: address = hello.aleo;
+```
+
+### Boolean Type
+
+The `bool` type represents logical true or false values:
+
+```leo
+let is_valid: bool = true;
+let is_empty: bool = false;
+
+let result: bool = player == 1u8 || player == 2u8;
+```
+
+### Field Type
+
+The `field` type represents elements in a finite field, used for cryptographic operations:
+
+```leo
+let x: field = 42field;
+let y: field = 0field;
+let sum: field = x + y;
+```
+
+Field elements support arithmetic operations and are fundamental to zero-knowledge proofs.
+
+### Group Type
+
+The `group` type represents elliptic curve points:
+
+```leo
+let point: group = 0group;
+let result: group = point.double();
+```
+
+Group elements are used for cryptographic operations like public key derivation.
+
+### Scalar Type
+
+The `scalar` type represents scalar values for elliptic curve operations:
+
+```leo
+let s: scalar = 1scalar;
+let multiplied: scalar = s * 2scalar;
+```
+
+### Signature Type
+
+The `signature` type represents cryptographic signatures:
+
+```leo
+let sig: signature = sign195m229jvzr0wmnshj6f8gwplhkrkhjumgjmad553r997u7pjfgpfz4j2w0c9lp53mcqqdsmut2g3a2zuvgst85w38hv273mwjec3sqjsv9w6uglcy58gjh7x3l55z68zsf24kx7a73ctp8x8klhuw7l2p4s3aq8um5jp304js7qcnwdqj56q5r5088tyvxsgektun0rnmvtsuxpe6sj;
+```
+
+## Composite Types
+
+### Structs
+
+Structs define custom data types with named fields:
+
+```leo
+struct Row {
+    c1: u8,
+    c2: u8,
+    c3: u8
+}
+
+struct Board {
+    r1: Row,
+    r2: Row,
+    r3: Row,
+}
+
+// Creating instances
+fn new() -> Board {
+    return Board {
+        r1: Row { c1: 0u8, c2: 0u8, c3: 0u8 },
+        r2: Row { c1: 0u8, c2: 0u8, c3: 0u8 },
+        r3: Row { c1: 0u8, c2: 0u8, c3: 0u8 },
+    };
+}
+```
+
+### Records
+
+Records are special structs with an `owner` field that represent owned assets:
+
+```leo
+record token {
+    owner: address,
+    amount: u64,
+}
+
+record Ticket {
+    owner: address,
+}
+
+// Creating records
+fn mint_private(receiver: address, amount: u64) -> token {
+    return token {
+        owner: receiver,
+        amount: amount,
+    };
+}
+```
+
+<Warning>
+Records always include an `owner` field. The owner is the only account that can spend or consume the record.
+</Warning>
+
+### Arrays
+
+Arrays are fixed-size collections of elements of the same type:
+
+```leo
+// Array literals
+let numbers: [u32; 5] = [1u32, 2u32, 3u32, 4u32, 5u32];
+let grid: [[u8; 3]; 3] = [
+    [0u8, 0u8, 0u8],
+    [0u8, 0u8, 0u8],
+    [0u8, 0u8, 0u8]
+];
+
+// Array access
+let first: u32 = numbers[0];
+let element: u8 = grid[1][2];
+
+// Repeated element syntax
+let zeros: [u32; 100] = [0u32; 100];
+```
+
+### Tuples
+
+Tuples group multiple values of different types:
+
+```leo
+// Tuple types
+let pair: (u64, address) = (100u64, self.caller);
+let triple: (bool, u32, u32) = (true, 1u32, 2u32);
+
+// Tuple access
+let amount: u64 = pair.0;
+let recipient: address = pair.1;
+
+// Returning tuples
+fn transfer_private(sender: token, receiver: address, amount: u64) 
+    -> (token, token) {
+    let remaining: token = token {
+        owner: sender.owner,
+        amount: sender.amount - amount,
+    };
+    
+    let transferred: token = token {
+        owner: receiver,
+        amount: amount,
+    };
+    
+    return (remaining, transferred);
+}
+```
+
+## Special Types
+
+### Unit Type
+
+The unit type `()` represents the absence of a value:
+
+```leo
+fn no_return_value() {
+    // Implicitly returns ()
+}
+
+fn explicit_unit() -> () {
+    return ();
+}
+```
+
+### Optional Types
+
+Optional types represent values that may or may not exist:
+
+```leo
+let maybe_value: Optional<u64> = none;
+let some_value: Optional<u64> = 100u64;
+```
+
+### Mapping Types
+
+Mappings define the key-value structure for on-chain storage:
+
+```leo
+mapping account: address => u64;
+mapping balances: address => u128;
+mapping data: u32 => [u8; 32];
+```
+
+See [Mappings](/language/mappings) for detailed usage.
+
+### Future Types
+
+The `Final` type represents deferred on-chain computation:
+
+```leo
+fn transfer_public(public receiver: address, public amount: u64) -> Final {
+    return final { finalize_transfer_public(self.caller, receiver, amount); };
+}
+```
+
+## Type Inference
+
+Leo can infer types in many contexts:
+
+```leo
+// Explicit type annotation
+let balance: u64 = 100u64;
+
+// Type inference from literal
+let price = 50u64;
+
+// Type inference from expression
+let sum = balance + price;  // u64
+```
+
+<Note>
+While type inference is supported, explicit type annotations improve code readability and catch errors earlier.
+</Note>
+
+## Type Casting
+
+Leo supports explicit type casting using the `as` operator:
+
+```leo
+let a: u32 = 100u32;
+let b: u8 = a as u8;
+
+let large: u64 = 1000u64;
+let small: u32 = large as u32;
+```
+
+<Warning>
+Type casting can result in value truncation or overflow. Ensure the target type can represent the source value.
+</Warning>
+
+## Type Compatibility
+
+### Numeric Literals
+
+Unsuffixed numeric literals are treated as `u32` by default:
+
+```leo
+let implicit: u32 = 42;    // Interpreted as u32
+let explicit: u64 = 42u64; // Explicit type
+```
+
+### Struct Compatibility
+
+Structs are nominally typed - two structs with identical fields but different names are not compatible:
+
+```leo
+struct Point1 {
+    x: u32,
+    y: u32,
+}
+
+struct Point2 {
+    x: u32,
+    y: u32,
+}
+
+// Point1 and Point2 are different types
+```
+
+## Default Values
+
+Leo provides zero values for all types:
+
+<CodeGroup>
+```leo Integers
+let zero_u8: u8 = 0u8;
+let zero_i32: i32 = 0i32;
+```
+
+```leo Boolean
+let default_bool: bool = false;
+```
+
+```leo Field/Group
+let zero_field: field = 0field;
+let zero_group: group = 0group;
+```
+
+```leo Address
+let zero_addr: address = 
+    aleo1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq3ljyzc;
+```
+</CodeGroup>
+
+## Numeric Radix
+
+Integer literals support multiple bases:
+
+```leo
+let decimal: u32 = 100u32;      // Base 10
+let hex: u32 = 0x64u32;          // Base 16
+let octal: u32 = 0o144u32;       // Base 8  
+let binary: u32 = 0b1100100u32;  // Base 2
+```
+
+## Best Practices
+
+### 1. Choose Appropriate Integer Sizes
+
+```leo
+// Good: Use smallest type that fits the range
+let age: u8 = 25u8;           // Max age 255 is sufficient
+let balance: u64 = 1000000u64; // Large balances need u64 or u128
+
+// Avoid: Unnecessarily large types
+let count: u128 = 5u128;       // u8 would suffice
+```
+
+### 2. Use Explicit Types for Clarity
+
+```leo
+// Good: Clear intent
+let amount: u64 = 1000u64;
+let recipient: address = self.caller;
+
+// Avoid: Unclear types
+let amount = 1000u64;
+let x = self.caller;
+```
+
+### 3. Document Custom Types
+
+```leo
+// A row in a tic tac toe board.
+// A valid entry is either 0, 1, or 2.
+struct Row {
+    c1: u8,
+    c2: u8,
+    c3: u8
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Operators" icon="code" href="/language/operators">
+    Learn about type operations
+  </Card>
+  <Card title="Records" icon="rectangle-list" href="/language/records">
+    Work with owned data
+  </Card>
+  <Card title="Statements" icon="brackets-curly" href="/language/statements">
+    Use types in statements
+  </Card>
+  <Card title="Functions" icon="function" href="/language/functions">
+    Define typed functions
+  </Card>
+</CardGroup>

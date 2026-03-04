@@ -1,0 +1,639 @@
+---
+title: Best Practices
+description: Coding standards, performance optimization, and security considerations for Leo development
+---
+
+Learn professional coding standards, performance optimization techniques, and security best practices for Leo development.
+
+## Code Style and Standards
+
+Follow these conventions from the Leo compiler codebase (based on `CONTRIBUTING.md` and `AGENTS.md`).
+
+### Comments
+
+Write clear, complete comments:
+
+```leo
+// Calculate compound interest over n periods.
+// Formula: A = P(1 + r)^n
+fn calculate_interest(principal: u64, rate: u64, periods: u32) -> u64 {
+    // Implementation
+}
+```
+
+<Accordion title="Comment Guidelines">
+- Use line comments (`//`) over block comments
+- Start with capital letter, end with period
+- Place comments on their own line above the code
+- Keep comments concise and focused on "why", not "what"
+
+```leo
+// Good: Explains reasoning
+// Validate input to prevent division by zero
+assert_neq(divisor, 0u32);
+
+// Avoid: Obvious what the code does
+// Add a to b
+let c: u32 = a + b;
+```
+</Accordion>
+
+### Naming Conventions
+
+<Steps>
+
+<Step title="Programs">
+Use descriptive names ending in `.aleo`:
+
+```leo
+program token_manager.aleo {}     // Good
+program tm.aleo {}                // Too short
+program token_aleo_mgr.aleo {}   // Contains "aleo"
+```
+</Step>
+
+<Step title="Functions">
+Use snake_case with descriptive verbs:
+
+```leo
+fn transfer_tokens(from: address, to: address, amount: u64) -> Final
+fn calculate_reward(stake: u64) -> u64
+fn validate_signature(sig: signature) -> bool
+```
+</Step>
+
+<Step title="Variables">
+Use snake_case with meaningful names:
+
+```leo
+let user_balance: u64 = 1000u64;        // Good
+let total_supply: u64 = 1000000u64;     // Good
+let x: u64 = 1000u64;                   // Too vague
+let usrBal: u64 = 1000u64;              // Wrong case
+```
+</Step>
+
+<Step title="Types">
+Use PascalCase for structs and records:
+
+```leo
+struct UserAccount {
+    owner: address,
+    balance: u64,
+}
+
+record TokenReceipt {
+    owner: address,
+    amount: u64,
+}
+```
+</Step>
+
+</Steps>
+
+### Type Annotations
+
+Always use explicit type annotations:
+
+```leo
+// Explicit types - preferred
+let amount: u64 = 100u64;
+let is_valid: bool = true;
+let recipient: address = self.caller;
+
+// Inferred types - avoid
+let amount = 100u64;
+let is_valid = true;
+```
+
+<Note>
+Explicit types improve readability and help catch type errors early.
+</Note>
+
+### Code Organization
+
+Structure programs logically:
+
+```leo
+program token.aleo {
+    // 1. Mappings and state
+    mapping balances: address => u64;
+    mapping allowances: (address, address) => u64;
+    
+    // 2. Records
+    record Token {
+        owner: address,
+        amount: u64,
+    }
+    
+    // 3. Constructor
+    @noupgrade
+    constructor() {}
+    
+    // 4. Public functions
+    fn transfer(to: address, amount: u64) -> Final {
+        // Implementation
+    }
+    
+    // 5. Helper functions
+    fn validate_amount(amount: u64) -> bool {
+        return amount > 0u64;
+    }
+    
+    // 6. Finalize functions
+}
+
+final fn finalize_transfer(from: address, to: address, amount: u64) {
+    // Implementation
+}
+```
+
+## Performance Optimization
+
+Based on Leo's internal coding conventions from `CONTRIBUTING.md`:
+
+### Memory Management
+
+<Accordion title="Avoid Unnecessary Clones">
+Pass by reference when ownership isn't needed:
+
+```leo
+// Good: Pass by value when consumed
+fn process_token(token: Token) -> Token {
+    // Token is consumed and returned
+    return token;
+}
+
+// Good: Use references for inspection
+fn check_balance(token: &Token) -> u64 {
+    return token.amount;
+}
+```
+</Accordion>
+
+<Accordion title="Minimize Intermediate Allocations">
+Avoid creating unnecessary intermediate values:
+
+```leo
+// Less efficient
+let temp1: u64 = calculate_fee(amount);
+let temp2: u64 = apply_discount(temp1);
+let final_amount: u64 = add_tax(temp2);
+
+// More efficient
+let final_amount: u64 = add_tax(apply_discount(calculate_fee(amount)));
+```
+
+Balance efficiency with readability.
+</Accordion>
+
+<Accordion title="Use Appropriate Data Structures">
+Choose the right type for your use case:
+
+```leo
+// Use arrays for fixed-size collections
+let prices: [u64; 10] = [100u64; 10];
+
+// Use tuples for heterogeneous data
+let user_info: (address, u64, bool) = (addr, balance, active);
+
+// Use structs for complex data
+struct UserData {
+    address: address,
+    balance: u64,
+    is_active: bool,
+}
+```
+</Accordion>
+
+### Loop Optimization
+
+Loops are unrolled at compile time:
+
+```leo
+// Efficient: Small, bounded loops
+for i: u8 in 0u8..10u8 {
+    process_item(items[i]);
+}
+
+// Inefficient: Large loops increase circuit size
+for i: u32 in 0u32..1000u32 {  // Avoid
+    process_item(items[i]);
+}
+```
+
+<Warning>
+Excessive loop unrolling dramatically increases circuit size and compilation time. Keep iteration counts small.
+</Warning>
+
+### Conditional Optimization
+
+Minimize branching complexity:
+
+```leo
+// Good: Simple conditionals
+fn apply_fee(amount: u64, is_premium: bool) -> u64 {
+    if is_premium {
+        return amount * 99u64 / 100u64;  // 1% fee
+    } else {
+        return amount * 95u64 / 100u64;  // 5% fee
+    }
+}
+
+// Avoid: Deep nesting
+fn complex_logic(x: u32) -> u32 {
+    if x > 10u32 {
+        if x > 20u32 {
+            if x > 30u32 {
+                // Too deeply nested
+            }
+        }
+    }
+}
+```
+
+## Security Best Practices
+
+### Input Validation
+
+Always validate inputs:
+
+```leo
+fn transfer(to: address, amount: u64) -> Final {
+    // Validate amount is non-zero
+    assert_neq(amount, 0u64);
+    
+    // Validate recipient is not zero address
+    assert_neq(to, aleo1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq3ljyzc);
+    
+    let from: address = self.caller;
+    return final { finalize_transfer(from, to, amount); };
+}
+```
+
+<Note>
+Validate all user inputs at function boundaries. Never trust external data.
+</Note>
+
+### Overflow Protection
+
+Leo automatically checks for overflows, but be mindful:
+
+```leo
+fn safe_add(a: u64, b: u64) -> u64 {
+    // Leo checks overflow automatically
+    return a + b;  // Fails if result > u64::MAX
+}
+
+fn safe_multiply(a: u64, b: u64) -> u64 {
+    // Be careful with multiplication
+    let result: u64 = a * b;  // Can overflow
+    return result;
+}
+```
+
+### Access Control
+
+Implement proper authorization:
+
+```leo
+mapping owners: address => bool;
+
+fn admin_function() -> Final {
+    let caller: address = self.caller;
+    return final { finalize_admin(caller); };
+}
+
+final fn finalize_admin(caller: address) {
+    // Verify caller is authorized
+    let is_owner: bool = Mapping::get(owners, caller);
+    assert_eq(is_owner, true);
+    
+    // Perform admin action
+}
+```
+
+### Reentrancy Protection
+
+Be aware of cross-program calls:
+
+```leo
+fn withdraw(amount: u64) -> Final {
+    let user: address = self.caller;
+    
+    // Check-Effects-Interactions pattern
+    // 1. Checks
+    return final { finalize_withdraw(user, amount); };
+}
+
+final fn finalize_withdraw(user: address, amount: u64) {
+    // 2. Effects (state changes first)
+    let balance: u64 = Mapping::get(balances, user);
+    assert_eq(balance >= amount, true);
+    Mapping::set(balances, user, balance - amount);
+    
+    // 3. Interactions (external calls last)
+    // Perform transfer
+}
+```
+
+<Tip>
+Follow the Checks-Effects-Interactions pattern: validate inputs, update state, then perform external interactions.
+</Tip>
+
+### Private Data Handling
+
+Use records for sensitive data:
+
+```leo
+// Private: Use records
+record PrivateToken {
+    owner: address,
+    amount: u64,  // Private to owner
+}
+
+// Public: Use mappings
+mapping public_balances: address => u64;  // Visible to all
+
+fn mint_private(amount: u64) -> PrivateToken {
+    return PrivateToken {
+        owner: self.caller,
+        amount: amount,
+    };
+}
+```
+
+## Error Handling
+
+### Fail Fast
+
+Validate early and fail fast:
+
+```leo
+fn process_payment(amount: u64, recipient: address) -> Final {
+    // Fail fast on invalid input
+    assert_neq(amount, 0u64);
+    assert_neq(recipient, aleo1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq3ljyzc);
+    
+    // Proceed with processing
+    return final { finalize_payment(self.caller, recipient, amount); };
+}
+```
+
+### Informative Assertions
+
+Use assertions to document invariants:
+
+```leo
+fn calculate_share(total: u64, percentage: u8) -> u64 {
+    // Document assumption
+    assert_eq(percentage <= 100u8, true);
+    
+    return total * (percentage as u64) / 100u64;
+}
+```
+
+## Testing Best Practices
+
+### Comprehensive Coverage
+
+Test all code paths:
+
+```leo title="tests/test_token.leo"
+import token.aleo;
+
+program test_token.aleo {
+    @test
+    fn test_valid_transfer() {
+        // Test happy path
+        let result: Final = token.aleo/transfer(recipient, 100u64);
+    }
+    
+    @test
+    @should_fail
+    fn test_zero_transfer() {
+        // Test zero amount fails
+        let result: Final = token.aleo/transfer(recipient, 0u64);
+    }
+    
+    @test
+    @should_fail
+    fn test_invalid_recipient() {
+        // Test invalid address fails
+        let zero_addr: address = aleo1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq3ljyzc;
+        let result: Final = token.aleo/transfer(zero_addr, 100u64);
+    }
+    
+    @noupgrade
+    constructor() {}
+}
+```
+
+### Test Edge Cases
+
+Include boundary condition tests:
+
+```leo
+@test
+fn test_max_value() {
+    let max_u64: u64 = 18446744073709551615u64;
+    let result: u64 = process(max_u64);
+    assert_eq(result, max_u64);
+}
+
+@test
+fn test_min_value() {
+    let result: u64 = process(0u64);
+    assert_eq(result, 0u64);
+}
+```
+
+## Documentation
+
+### Function Documentation
+
+Document public functions:
+
+```leo
+// Transfers tokens from caller to recipient.
+//
+// Parameters:
+// - to: Recipient address
+// - amount: Number of tokens to transfer
+//
+// Returns: Final future for on-chain execution
+//
+// Fails if:
+// - amount is zero
+// - recipient is zero address
+// - caller has insufficient balance
+fn transfer(to: address, amount: u64) -> Final {
+    assert_neq(amount, 0u64);
+    assert_neq(to, aleo1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq3ljyzc);
+    
+    let from: address = self.caller;
+    return final { finalize_transfer(from, to, amount); };
+}
+```
+
+### README Files
+
+Include a README.md in your project:
+
+```markdown
+# Token Manager
+
+A Leo program for managing fungible tokens on Aleo.
+
+## Features
+
+- Mint new tokens
+- Transfer tokens between addresses
+- Query balances
+
+## Usage
+
+```bash
+leo build
+leo run transfer aleo1... 100u64
+```
+
+## Testing
+
+```bash
+leo test
+```
+```
+
+## Version Control
+
+### .gitignore
+
+Exclude build artifacts:
+
+```gitignore title=".gitignore"
+.env
+*.avm
+*.prover
+*.verifier
+outputs/
+build/
+.leo/
+```
+
+### Commit Messages
+
+Use clear, descriptive commit messages:
+
+```bash
+# Good
+git commit -m "Add overflow check to transfer function"
+git commit -m "Fix: Validate recipient address before transfer"
+git commit -m "Refactor: Extract validation logic to helper function"
+
+# Avoid
+git commit -m "fix"
+git commit -m "update"
+git commit -m "wip"
+```
+
+## Deployment Considerations
+
+### Constructor Configuration
+
+Choose the right constructor policy:
+
+```leo
+// Prevent all upgrades
+@noupgrade
+constructor() {}
+
+// Allow admin to upgrade
+@admin(address="aleo1admin...")
+constructor() {}
+
+// Custom upgrade logic
+@custom
+constructor() {
+    // Custom initialization
+}
+```
+
+### Gas Optimization
+
+Minimize on-chain operations:
+
+```leo
+// Expensive: Multiple mapping operations
+final fn inefficient(addr: address) {
+    let x: u64 = Mapping::get(data, addr);
+    Mapping::set(data, addr, x + 1u64);
+    let y: u64 = Mapping::get(data, addr);
+    Mapping::set(data, addr, y + 1u64);
+}
+
+// Efficient: Batch operations
+final fn efficient(addr: address) {
+    let x: u64 = Mapping::get(data, addr);
+    Mapping::set(data, addr, x + 2u64);  // Single update
+}
+```
+
+## Code Review Checklist
+
+Before deploying, verify:
+
+<Steps>
+
+<Step title="Correctness">
+- [ ] All inputs validated
+- [ ] Logic traced step-by-step
+- [ ] Edge cases handled
+- [ ] No overflow conditions
+</Step>
+
+<Step title="Security">
+- [ ] Access control implemented
+- [ ] No information leakage
+- [ ] Private data properly protected
+- [ ] Fail-safe defaults used
+</Step>
+
+<Step title="Performance">
+- [ ] Loops are reasonably bounded
+- [ ] No unnecessary allocations
+- [ ] Efficient data structures used
+- [ ] Minimal mapping operations
+</Step>
+
+<Step title="Testing">
+- [ ] All functions have tests
+- [ ] Edge cases covered
+- [ ] Failure cases tested
+- [ ] Integration tests pass
+</Step>
+
+<Step title="Documentation">
+- [ ] Public functions documented
+- [ ] Complex logic explained
+- [ ] README present
+- [ ] Version updated
+</Step>
+
+</Steps>
+
+## Resources
+
+From the Leo compiler development guidelines:
+
+- Follow coding conventions in `CONTRIBUTING.md`
+- Review architectural patterns in `AGENTS.md`
+- Study test examples in `tests/tests/compiler/`
+- Check error handling in `crates/errors/`
+
+## Next Steps
+
+- Review [writing programs](/development/writing-programs) for code structure
+- Learn [testing strategies](/development/testing) for comprehensive coverage
+- Explore [debugging techniques](/development/debugging) for troubleshooting
+- Study [package management](/development/package-management) for dependencies

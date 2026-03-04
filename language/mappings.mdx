@@ -1,0 +1,478 @@
+---
+title: Mappings
+description: Learn about on-chain storage with mappings in Leo
+---
+
+## What are Mappings?
+
+Mappings provide persistent, on-chain key-value storage in Leo programs. They are similar to hash maps or dictionaries in other languages, but their state is stored on the Aleo blockchain and can be accessed by anyone.
+
+## Mapping Declaration
+
+Mappings are declared at the program level using the `mapping` keyword:
+
+```leo
+program token.aleo {
+    // Mapping declaration: name: key_type => value_type
+    mapping account: address => u64;
+}
+```
+
+### Multiple Mappings
+
+Programs can declare multiple mappings:
+
+```leo
+program token.aleo {
+    mapping account: address => u64;
+    mapping allowances: address => u64;
+    mapping metadata: address => [u8; 32];
+}
+```
+
+## Mapping Operations
+
+Mappings can only be accessed from finalize functions, not from regular functions.
+
+### Reading from Mappings
+
+Use `Mapping::get_or_use()` to read values:
+
+```leo
+final fn finalize_mint_public(
+    public receiver: address,
+    public amount: u64
+) {
+    // Get existing balance, or use 0u64 if key doesn't exist
+    let current_amount: u64 = Mapping::get_or_use(account, receiver, 0u64);
+    Mapping::set(account, receiver, current_amount + amount);
+}
+```
+
+<Note>
+`get_or_use()` returns the existing value if the key exists, or the default value if the key doesn't exist. This prevents errors when accessing non-existent keys.
+</Note>
+
+### Writing to Mappings
+
+Use `Mapping::set()` to write values:
+
+```leo
+final fn finalize_transfer_public(
+    public sender: address,
+    public receiver: address,
+    public amount: u64
+) {
+    // Update sender balance
+    let sender_amount: u64 = Mapping::get_or_use(account, sender, 0u64);
+    Mapping::set(account, sender, sender_amount - amount);
+    
+    // Update receiver balance
+    let receiver_amount: u64 = Mapping::get_or_use(account, receiver, 0u64);
+    Mapping::set(account, receiver, receiver_amount + amount);
+}
+```
+
+## Complete Example
+
+Here's a complete token program using mappings:
+
+```leo
+program token.aleo {
+    // On-chain storage of account balances
+    mapping account: address => u64;
+    
+    // Public mint function
+    fn mint_public(public receiver: address, public amount: u64) -> Final {
+        return final { finalize_mint_public(receiver, amount); };
+    }
+    
+    // Public transfer function
+    fn transfer_public(
+        public receiver: address,
+        public amount: u64
+    ) -> Final {
+        return final {
+            finalize_transfer_public(self.caller, receiver, amount);
+        };
+    }
+}
+
+// Finalize functions that modify mappings
+final fn finalize_mint_public(
+    public receiver: address,
+    public amount: u64
+) {
+    let current_amount: u64 = Mapping::get_or_use(account, receiver, 0u64);
+    Mapping::set(account, receiver, current_amount + amount);
+}
+
+final fn finalize_transfer_public(
+    public sender: address,
+    public receiver: address,
+    public amount: u64
+) {
+    // Deduct from sender
+    let sender_amount: u64 = Mapping::get_or_use(account, sender, 0u64);
+    Mapping::set(account, sender, sender_amount - amount);
+    
+    // Add to receiver
+    let receiver_amount: u64 = Mapping::get_or_use(account, receiver, 0u64);
+    Mapping::set(account, receiver, receiver_amount + amount);
+}
+```
+
+## Mapping Key Types
+
+Mapping keys can be any primitive type:
+
+```leo
+mapping balances: address => u64;
+mapping counters: u32 => u64;
+mapping flags: bool => u8;
+mapping data: field => [u8; 32];
+```
+
+<Warning>
+Mapping keys must be primitive types. Complex types like structs or records cannot be used as keys.
+</Warning>
+
+## Mapping Value Types
+
+Mapping values can be primitive types or arrays:
+
+```leo
+// Primitive values
+mapping balances: address => u64;
+mapping status: address => bool;
+mapping levels: address => u32;
+
+// Array values
+mapping data: address => [u8; 32];
+mapping grid: u32 => [u32; 10];
+```
+
+## Lottery Example
+
+Here's a lottery program that uses mappings:
+
+```leo
+program lottery.aleo {
+    // Track number of winners
+    mapping num_winners: u8 => u8;
+    
+    record Ticket {
+        owner: address,
+    }
+    
+    fn play() -> (Ticket, Final) {
+        let ticket: Ticket = Ticket {
+            owner: self.caller,
+        };
+        return (ticket, final { finalize_play() });
+    }
+}
+
+final fn finalize_play() {
+    // Check lottery hasn't expired
+    assert(block.height <= 1000u32);
+    
+    // Randomly select winner
+    assert(ChaCha::rand_bool());
+    
+    // Check winner limit
+    let winners: u8 = num_winners.get_or_use(0u8, 0u8);
+    assert(winners < 5u8);
+    
+    // Increment winner count
+    num_winners.set(0u8, winners + 1u8);
+}
+```
+
+## Access Patterns
+
+### Increment/Decrement
+
+```leo
+final fn increment_counter(public key: u32) {
+    let current: u64 = Mapping::get_or_use(counter, key, 0u64);
+    Mapping::set(counter, key, current + 1u64);
+}
+
+final fn decrement_balance(public addr: address, public amount: u64) {
+    let current: u64 = Mapping::get_or_use(balances, addr, 0u64);
+    Mapping::set(balances, addr, current - amount);
+}
+```
+
+### Conditional Updates
+
+```leo
+final fn update_if_greater(
+    public key: address,
+    public new_value: u64
+) {
+    let current: u64 = Mapping::get_or_use(scores, key, 0u64);
+    
+    if new_value > current {
+        Mapping::set(scores, key, new_value);
+    }
+}
+```
+
+### Multiple Mapping Updates
+
+```leo
+final fn swap_balances(
+    public addr1: address,
+    public addr2: address
+) {
+    let balance1: u64 = Mapping::get_or_use(account, addr1, 0u64);
+    let balance2: u64 = Mapping::get_or_use(account, addr2, 0u64);
+    
+    Mapping::set(account, addr1, balance2);
+    Mapping::set(account, addr2, balance1);
+}
+```
+
+## Visibility and Access
+
+### Public by Default
+
+All mapping data is public and visible on the blockchain:
+
+```leo
+mapping account: address => u64;
+// Anyone can query: account[address] to see balance
+```
+
+### Read-Only from Outside
+
+Mappings can only be modified from finalize functions within the program:
+
+```leo
+// Only finalize functions in this program can modify the mapping
+final fn finalize_update(public key: address, public value: u64) {
+    Mapping::set(account, key, value);
+}
+```
+
+## Gas and Efficiency
+
+### Minimize Reads
+
+```leo
+// Good: Read once, use multiple times
+final fn efficient_update(public addr: address) {
+    let balance: u64 = Mapping::get_or_use(account, addr, 0u64);
+    let new_balance: u64 = balance * 2u64;
+    Mapping::set(account, addr, new_balance);
+}
+
+// Avoid: Multiple reads of same key
+final fn inefficient_update(public addr: address) {
+    let balance1: u64 = Mapping::get_or_use(account, addr, 0u64);
+    let balance2: u64 = Mapping::get_or_use(account, addr, 0u64);  // Duplicate read
+    Mapping::set(account, addr, balance1 + balance2);
+}
+```
+
+### Batch Operations
+
+```leo
+// Good: Batch related updates in one finalize
+final fn batch_transfer(
+    public sender: address,
+    public receiver: address,
+    public amount: u64
+) {
+    // Read both accounts
+    let sender_balance: u64 = Mapping::get_or_use(account, sender, 0u64);
+    let receiver_balance: u64 = Mapping::get_or_use(account, receiver, 0u64);
+    
+    // Update both accounts
+    Mapping::set(account, sender, sender_balance - amount);
+    Mapping::set(account, receiver, receiver_balance + amount);
+}
+```
+
+## Error Handling
+
+### Underflow Protection
+
+```leo
+final fn safe_transfer(
+    public sender: address,
+    public receiver: address,
+    public amount: u64
+) {
+    let sender_balance: u64 = Mapping::get_or_use(account, sender, 0u64);
+    
+    // This will fail the transaction if sender_balance < amount
+    let new_balance: u64 = sender_balance - amount;
+    
+    Mapping::set(account, sender, new_balance);
+    
+    let receiver_balance: u64 = Mapping::get_or_use(account, receiver, 0u64);
+    Mapping::set(account, receiver, receiver_balance + amount);
+}
+```
+
+### Explicit Validation
+
+```leo
+final fn validated_transfer(
+    public sender: address,
+    public receiver: address,
+    public amount: u64
+) {
+    let sender_balance: u64 = Mapping::get_or_use(account, sender, 0u64);
+    
+    // Explicit check before subtraction
+    assert(sender_balance >= amount);
+    
+    Mapping::set(account, sender, sender_balance - amount);
+    
+    let receiver_balance: u64 = Mapping::get_or_use(account, receiver, 0u64);
+    Mapping::set(account, receiver, receiver_balance + amount);
+}
+```
+
+## Best Practices
+
+### 1. Use Descriptive Names
+
+```leo
+// Good: Clear purpose
+mapping account: address => u64;
+mapping allowances: address => u64;
+mapping voter_status: address => bool;
+
+// Avoid: Unclear names
+mapping m1: address => u64;
+mapping data: address => u64;
+```
+
+### 2. Initialize with Defaults
+
+```leo
+// Good: Provide sensible defaults
+let balance: u64 = Mapping::get_or_use(account, addr, 0u64);
+let count: u32 = Mapping::get_or_use(counter, key, 0u32);
+let active: bool = Mapping::get_or_use(status, addr, false);
+```
+
+### 3. Validate Before Updates
+
+```leo
+// Good: Check constraints
+final fn update_score(public player: address, public score: u64) {
+    assert(score <= MAX_SCORE);
+    
+    let current: u64 = Mapping::get_or_use(scores, player, 0u64);
+    assert(score > current);  // Only allow increases
+    
+    Mapping::set(scores, player, score);
+}
+```
+
+### 4. Document Mapping Purpose
+
+```leo
+// On-chain storage of account balances.
+// Key: account address
+// Value: token balance in base units
+mapping account: address => u64;
+
+// Tracks the number of winners in the lottery.
+// Key: always 0u8 (single counter)
+// Value: current winner count
+mapping num_winners: u8 => u8;
+```
+
+## Common Patterns
+
+### Token Balances
+
+```leo
+mapping account: address => u64;
+
+final fn transfer(
+    public sender: address,
+    public receiver: address,
+    public amount: u64
+) {
+    let sender_balance: u64 = Mapping::get_or_use(account, sender, 0u64);
+    Mapping::set(account, sender, sender_balance - amount);
+    
+    let receiver_balance: u64 = Mapping::get_or_use(account, receiver, 0u64);
+    Mapping::set(account, receiver, receiver_balance + amount);
+}
+```
+
+### Global Counters
+
+```leo
+mapping total_supply: u8 => u64;
+
+final fn increment_supply(public amount: u64) {
+    let current: u64 = Mapping::get_or_use(total_supply, 0u8, 0u64);
+    Mapping::set(total_supply, 0u8, current + amount);
+}
+```
+
+### Access Control
+
+```leo
+mapping admins: address => bool;
+
+final fn check_admin(public addr: address) {
+    let is_admin: bool = Mapping::get_or_use(admins, addr, false);
+    assert(is_admin);
+}
+```
+
+## Limitations
+
+### No Iteration
+
+You cannot iterate over mapping keys or values:
+
+```leo
+// Not possible in Leo
+// for key in mapping.keys() { ... }
+```
+
+### No Deletion
+
+Mappings cannot delete entries. Set to zero/default instead:
+
+```leo
+// Set to zero to "delete"
+Mapping::set(account, addr, 0u64);
+```
+
+### No Existence Check
+
+Use `get_or_use()` with a sentinel value to check existence:
+
+```leo
+let exists: bool = Mapping::get_or_use(flags, key, false);
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Finalize" icon="flag-checkered" href="/language/finalize">
+    Learn about finalize functions
+  </Card>
+  <Card title="Records" icon="rectangle-list" href="/language/records">
+    Combine with private records
+  </Card>
+  <Card title="Functions" icon="function" href="/language/functions">
+    Call finalize from functions
+  </Card>
+  <Card title="Programs" icon="file-code" href="/language/programs">
+    Program structure overview
+  </Card>
+</CardGroup>

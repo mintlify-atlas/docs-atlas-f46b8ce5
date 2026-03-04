@@ -1,0 +1,511 @@
+---
+title: leo update
+description: Update the Leo CLI to the latest version
+---
+
+The `leo update` command updates your Leo CLI installation to the latest version or a specific release.
+
+## Syntax
+
+```bash
+leo update [OPTIONS]
+```
+
+## Options
+
+<ParamField path="-l, --list" type="boolean" default={false}>
+  List all available releases without updating.
+</ParamField>
+
+<ParamField path="-n, --name" type="string">
+  Update to a specific named release (e.g., `v2.0.0`).
+</ParamField>
+
+<ParamField path="-q, --quiet" type="boolean" default={false}>
+  Suppress download logs and progress output.
+</ParamField>
+
+## Examples
+
+### Update to Latest Version
+
+```bash
+leo update
+```
+
+Output:
+```
+🔄 Checking for updates...
+📦 Downloading Leo v2.1.0...
+⬇️  [========================================] 100%
+✅ Leo has updated to version 2.1.0
+```
+
+### List Available Versions
+
+```bash
+leo update --list
+```
+
+Output:
+```
+📋 Available Leo Releases
+──────────────────────────────────────────────
+v2.1.0  (latest)
+v2.0.0
+v1.9.5
+v1.9.4
+v1.9.3
+...
+```
+
+### Update to Specific Version
+
+```bash
+leo update --name v2.0.0
+```
+
+Output:
+```
+🔄 Updating to Leo v2.0.0...
+📦 Downloading Leo v2.0.0...
+⬇️  [========================================] 100%
+✅ Leo has updated to version 2.0.0
+```
+
+### Quiet Update
+
+```bash
+leo update --quiet
+```
+
+No output unless there's an error or completion:
+```
+✅ Leo has updated to version 2.1.0
+```
+
+### Check If Already Up to Date
+
+```bash
+leo update
+```
+
+Output:
+```
+✅ Leo is already on the latest version (2.1.0)
+```
+
+## Update Process
+
+1. **Check Current Version**:
+   ```bash
+   leo --version
+   ```
+   Output: `leo 2.0.0`
+
+2. **Check for Updates**:
+   ```bash
+   leo update
+   ```
+   Leo queries GitHub releases for the latest version.
+
+3. **Download New Version**:
+   If a newer version exists:
+   - Downloads binary for your platform
+   - Verifies integrity
+   - Shows progress
+
+4. **Install New Version**:
+   - Replaces current Leo binary
+   - Preserves configuration and cache
+   - Updates symlinks
+
+5. **Verify Installation**:
+   ```bash
+   leo --version
+   ```
+   Output: `leo 2.1.0`
+
+## Version Management
+
+### Check Current Version
+
+```bash
+leo --version
+```
+
+Output:
+```
+leo 2.0.0
+```
+
+### View Release Notes
+
+After listing versions:
+
+```bash
+leo update --list
+```
+
+Visit GitHub for release notes:
+```
+https://github.com/AleoHQ/leo/releases/tag/v2.1.0
+```
+
+### Install Specific Version
+
+```bash
+leo update --name v2.0.0
+```
+
+Useful for:
+- Testing compatibility
+- Reverting to stable version
+- Matching team's Leo version
+
+## Installation Locations
+
+Leo binary locations by platform:
+
+### Linux / macOS
+```bash
+~/.leo/bin/leo
+```
+
+In PATH via:
+```bash
+~/.bashrc or ~/.zshrc
+export PATH="$HOME/.leo/bin:$PATH"
+```
+
+### Windows
+```
+C:\Users\<username>\.leo\bin\leo.exe
+```
+
+In PATH via:
+```
+Environment Variables > System Variables > Path
+```
+
+## Update Strategies
+
+### Stay on Latest (Recommended)
+
+```bash
+# Check for updates regularly
+leo update
+```
+
+Benefits:
+- Latest features
+- Bug fixes
+- Security patches
+- Performance improvements
+
+### Pin to Specific Version
+
+```bash
+# Install specific version
+leo update --name v2.0.0
+```
+
+Benefits:
+- Consistent builds
+- Predictable behavior
+- Team synchronization
+
+### Periodic Updates
+
+```bash
+# Update monthly or per sprint
+leo update --list
+leo update --name v2.1.0
+```
+
+Benefits:
+- Balance stability and features
+- Planned migration
+- Controlled updates
+
+## Breaking Changes
+
+When updating across major versions:
+
+### Check Compatibility
+
+1. Read release notes
+2. Test in development
+3. Update dependencies
+4. Rebuild projects
+
+### Example: v1.x to v2.x
+
+```bash
+# Current version
+leo --version  # 1.9.5
+
+# Check what's new
+leo update --list
+
+# Update to v2.0.0
+leo update --name v2.0.0
+
+# Rebuild projects
+cd my_project
+leo clean
+leo build
+```
+
+### Migration Workflow
+
+```bash
+# 1. Backup current version
+cp ~/.leo/bin/leo ~/.leo/bin/leo-backup
+
+# 2. Update
+leo update --name v2.0.0
+
+# 3. Test projects
+leo build
+leo test
+
+# 4. If issues, rollback
+cp ~/.leo/bin/leo-backup ~/.leo/bin/leo
+
+# 5. Otherwise, remove backup
+rm ~/.leo/bin/leo-backup
+```
+
+## Troubleshooting
+
+### Update Failed
+
+```
+Failed to update Leo to the latest version
+```
+
+Solutions:
+
+1. **Check internet connection**:
+   ```bash
+   ping github.com
+   ```
+
+2. **Check GitHub access**:
+   ```bash
+   curl -I https://api.github.com/repos/AleoHQ/leo/releases
+   ```
+
+3. **Manual download**:
+   Visit https://github.com/AleoHQ/leo/releases
+   Download binary for your platform
+   Replace `~/.leo/bin/leo`
+
+4. **Reinstall Leo**:
+   ```bash
+   curl -sSf https://raw.githubusercontent.com/AleoHQ/leo/refs/heads/mainnet/install.sh | sh
+   ```
+
+### Permission Denied
+
+```
+Permission denied: cannot replace Leo binary
+```
+
+Solutions:
+
+1. **Check file permissions**:
+   ```bash
+   ls -l ~/.leo/bin/leo
+   ```
+
+2. **Fix permissions**:
+   ```bash
+   chmod +x ~/.leo/bin/leo
+   ```
+
+3. **Run with elevated permissions** (if needed):
+   ```bash
+   sudo leo update
+   ```
+
+### Binary Not Found After Update
+
+```
+leo: command not found
+```
+
+Solutions:
+
+1. **Check PATH**:
+   ```bash
+   echo $PATH
+   ```
+
+2. **Add to PATH**:
+   ```bash
+   echo 'export PATH="$HOME/.leo/bin:$PATH"' >> ~/.bashrc
+   source ~/.bashrc
+   ```
+
+3. **Verify installation**:
+   ```bash
+   ls ~/.leo/bin/leo
+   ~/.leo/bin/leo --version
+   ```
+
+### Version Mismatch After Update
+
+```bash
+leo --version  # Shows old version
+```
+
+Solutions:
+
+1. **Reload shell**:
+   ```bash
+   source ~/.bashrc  # or ~/.zshrc
+   ```
+
+2. **Check which Leo**:
+   ```bash
+   which leo
+   ```
+
+3. **Use absolute path**:
+   ```bash
+   ~/.leo/bin/leo --version
+   ```
+
+## Automated Updates
+
+### Cron Job (Linux/macOS)
+
+Update weekly:
+
+```bash
+# Add to crontab
+crontab -e
+
+# Run every Monday at 2 AM
+0 2 * * 1 $HOME/.leo/bin/leo update --quiet
+```
+
+### Task Scheduler (Windows)
+
+Create scheduled task:
+
+```powershell
+schtasks /create /tn "Leo Update" /tr "C:\Users\<username>\.leo\bin\leo.exe update --quiet" /sc weekly /d MON /st 02:00
+```
+
+### CI/CD Integration
+
+```yaml
+# GitHub Actions example
+name: Update Leo
+on:
+  schedule:
+    - cron: '0 2 * * 1'  # Weekly on Monday at 2 AM
+  workflow_dispatch:     # Manual trigger
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Update Leo
+        run: |
+          curl -sSf https://raw.githubusercontent.com/AleoHQ/leo/refs/heads/mainnet/install.sh | sh
+          echo "$HOME/.leo/bin" >> $GITHUB_PATH
+      - name: Verify version
+        run: leo --version
+```
+
+## Best Practices
+
+### 1. Check Before Major Updates
+
+```bash
+leo update --list
+# Read release notes for breaking changes
+```
+
+### 2. Test After Updating
+
+```bash
+leo update
+cd my_project
+leo clean && leo build && leo test
+```
+
+### 3. Update All Projects
+
+After updating Leo:
+
+```bash
+for dir in ~/projects/*/; do
+    (cd "$dir" && leo clean && leo build)
+done
+```
+
+### 4. Document Leo Version
+
+In `README.md`:
+
+```markdown
+## Requirements
+
+- Leo v2.0.0 or higher
+
+## Installation
+
+\`\`\`bash
+leo update --name v2.0.0
+\`\`\`
+```
+
+### 5. Pin Version in CI
+
+```yaml
+- name: Install Leo
+  run: |
+    curl -sSf https://raw.githubusercontent.com/AleoHQ/leo/refs/heads/mainnet/install.sh | sh
+    leo update --name v2.0.0 --quiet
+```
+
+## Comparison with Installation
+
+| Method | Command | Use Case |
+|--------|---------|----------|
+| **Install** | `curl ... \| sh` | First-time setup |
+| **Update Latest** | `leo update` | Get newest version |
+| **Update Specific** | `leo update --name v2.0.0` | Install exact version |
+| **List Versions** | `leo update --list` | Check available releases |
+
+## Release Channels
+
+Leo follows semantic versioning:
+
+- **Major** (v2.0.0): Breaking changes
+- **Minor** (v2.1.0): New features, backward compatible
+- **Patch** (v2.0.1): Bug fixes, backward compatible
+
+### Stable Releases
+```
+v2.0.0, v2.1.0, v2.2.0
+```
+
+Recommended for production.
+
+### Pre-releases
+```
+v2.1.0-beta.1, v2.1.0-rc.1
+```
+
+For testing and early access.
+
+## Next Steps
+
+- [Create new project](/cli/new)
+- [Build programs](/cli/build)
+- [View CLI overview](/cli/overview)

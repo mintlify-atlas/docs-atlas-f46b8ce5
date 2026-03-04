@@ -1,0 +1,503 @@
+---
+title: Imports
+description: Learn how to import and use other Leo programs and dependencies
+---
+
+## Import Statement
+
+Leo programs can import other programs to reuse functionality. Imports are declared before the program scope:
+
+```leo
+import credits.aleo;
+import token.aleo;
+
+program my_app.aleo {
+    // Use imported programs
+}
+```
+
+## Import Syntax
+
+The basic import syntax is:
+
+```leo
+import program_name.aleo;
+```
+
+Multiple programs can be imported:
+
+```leo
+import credits.aleo;
+import token.aleo;
+import nft.aleo;
+import marketplace.aleo;
+
+program my_app.aleo {
+    // Program body
+}
+```
+
+## Using Imported Programs
+
+Once imported, you can reference types and call functions from imported programs:
+
+```leo
+import credits.aleo;
+import token.aleo;
+
+program swap.aleo {
+    // Use imported record types
+    fn swap_for_credits(
+        token_record: token.token,
+        amount: u64
+    ) -> (credits.credits, token.token) {
+        // Implementation
+    }
+}
+```
+
+## Accessing Imported Types
+
+Access types from imported programs using dot notation:
+
+```leo
+import token.aleo;
+
+program marketplace.aleo {
+    // Reference imported record type
+    fn list_token(item: token.token, price: u64) {
+        // Use token.token record type
+    }
+    
+    // Use in return types
+    fn buy_token(listing_id: u64) -> token.token {
+        // Return token from imported program
+    }
+}
+```
+
+## Calling Imported Functions
+
+While Leo supports imports for type definitions, calling external program functions typically happens through the Aleo VM's program composition at runtime.
+
+## Built-in Programs
+
+### Credits Program
+
+The `credits.aleo` program is available by default:
+
+```leo
+import credits.aleo;
+
+program my_app.aleo {
+    fn use_credits(credit_record: credits.credits) {
+        // Work with Aleo credits
+    }
+}
+```
+
+## Import Resolution
+
+Leo resolves imports in the following order:
+
+1. **Local programs**: Programs in your project
+2. **Dependencies**: Programs specified in `program.json`
+3. **Published programs**: Programs deployed on the Aleo network
+
+### Project Structure
+
+```
+my-project/
+├── src/
+│   └── main.leo           # Main program
+├── imports/
+│   ├── helper.aleo        # Local imports
+│   └── utils.aleo
+├── program.json           # Dependencies configuration
+└── build/
+```
+
+## Dependencies Configuration
+
+Specify external dependencies in `program.json`:
+
+```json
+{
+  "program": "my_app.aleo",
+  "version": "0.0.0",
+  "description": "My Leo application",
+  "dependencies": {
+    "token.aleo": {
+      "version": "1.0.0",
+      "network": "testnet3"
+    },
+    "nft.aleo": {
+      "version": "2.1.0",
+      "network": "testnet3"
+    }
+  }
+}
+```
+
+## Import Patterns
+
+### Wrapper Pattern
+
+Wrap imported functionality with your own interface:
+
+```leo
+import token.aleo;
+
+program wrapper.aleo {
+    // Wrap token operations
+    fn safe_transfer(
+        sender: token.token,
+        receiver: address,
+        amount: u64
+    ) -> (token.token, token.token) {
+        // Add validation
+        assert(amount > 0u64);
+        assert(amount <= MAX_TRANSFER);
+        
+        // Use imported type
+        // (actual transfer logic would go here)
+        return create_records(sender, receiver, amount);
+    }
+}
+```
+
+### Adapter Pattern
+
+Adapt imported types to your program's needs:
+
+```leo
+import external_token.aleo;
+
+program adapter.aleo {
+    record InternalToken {
+        owner: address,
+        amount: u64,
+        metadata: u32,
+    }
+    
+    // Convert between types
+    fn convert_token(
+        external: external_token.token
+    ) -> InternalToken {
+        return InternalToken {
+            owner: external.owner,
+            amount: external.amount,
+            metadata: 0u32,
+        };
+    }
+}
+```
+
+### Composition Pattern
+
+Combine multiple imported programs:
+
+```leo
+import token.aleo;
+import nft.aleo;
+import marketplace.aleo;
+
+program bundle.aleo {
+    // Combine functionality from multiple imports
+    fn create_bundle(
+        token_record: token.token,
+        nft_record: nft.NFT,
+        price: u64
+    ) {
+        // Create a bundled listing
+        // Combines tokens and NFTs
+    }
+}
+```
+
+## Import Limitations
+
+### No Wildcard Imports
+
+Leo does not support wildcard imports:
+
+```leo
+// Not supported
+import token.aleo::*;
+
+// Correct: Import the full program
+import token.aleo;
+```
+
+### No Selective Imports
+
+You must import the entire program, not individual items:
+
+```leo
+// Not supported
+import token.aleo::{token, mint};
+
+// Correct: Import the full program
+import token.aleo;
+```
+
+### No Aliasing
+
+Leo does not support import aliases:
+
+```leo
+// Not supported
+import token.aleo as tok;
+
+// Correct: Use full program name
+import token.aleo;
+```
+
+## Best Practices
+
+### 1. Explicit Imports
+
+Import only what you need:
+
+```leo
+// Good: Only import programs you use
+import token.aleo;
+import marketplace.aleo;
+
+program my_app.aleo {
+    fn use_token(t: token.token) { }
+    fn use_marketplace(id: u64) { }
+}
+
+// Avoid: Unused imports
+import nft.aleo;  // Not used anywhere
+```
+
+### 2. Document Dependencies
+
+Comment on why imports are needed:
+
+```leo
+// Import token for fungible asset transfers
+import token.aleo;
+
+// Import marketplace for price discovery
+import marketplace.aleo;
+
+program swap.aleo {
+    // Implementation
+}
+```
+
+### 3. Version Dependencies
+
+Specify exact versions in `program.json`:
+
+```json
+{
+  "dependencies": {
+    "token.aleo": {
+      "version": "1.0.0",  // Exact version
+      "network": "testnet3"
+    }
+  }
+}
+```
+
+### 4. Validate Imported Data
+
+Always validate data from imported programs:
+
+```leo
+import token.aleo;
+
+program validator.aleo {
+    fn validate_and_use(t: token.token, min_amount: u64) {
+        // Validate imported record
+        assert(t.amount >= min_amount);
+        assert(t.owner == self.caller);
+        
+        // Use validated record
+        process(t);
+    }
+}
+```
+
+## Circular Dependencies
+
+Leo does not allow circular dependencies:
+
+```leo
+// program_a.aleo
+import program_b.aleo;  // program_a imports program_b
+
+// program_b.aleo
+import program_a.aleo;  // ERROR: Circular dependency
+```
+
+<Warning>
+Circular imports will cause a compilation error. Refactor shared functionality into a separate program.
+</Warning>
+
+### Resolving Circular Dependencies
+
+Create a common base program:
+
+```leo
+// common.aleo - Shared types
+program common.aleo {
+    record SharedData {
+        owner: address,
+        value: u64,
+    }
+}
+
+// program_a.aleo
+import common.aleo;
+
+program program_a.aleo {
+    fn use_shared(data: common.SharedData) { }
+}
+
+// program_b.aleo
+import common.aleo;
+
+program program_b.aleo {
+    fn use_shared(data: common.SharedData) { }
+}
+```
+
+## Standard Library Patterns
+
+Common patterns for importing standard functionality:
+
+### Token Standard
+
+```leo
+import token.aleo;
+
+program my_defi.aleo {
+    fn deposit(token_record: token.token) {
+        // DeFi operations
+    }
+    
+    fn withdraw(amount: u64) -> token.token {
+        // Return tokens
+    }
+}
+```
+
+### NFT Standard
+
+```leo
+import nft.aleo;
+
+program gallery.aleo {
+    fn display(nft_record: nft.NFT) {
+        // Gallery operations
+    }
+    
+    fn mint_art() -> nft.NFT {
+        // Create NFT
+    }
+}
+```
+
+## Local Development
+
+When developing locally, ensure imported programs are available:
+
+```bash
+# Build imported programs first
+cd ../token
+leo build
+
+# Then build your program
+cd ../my_app
+leo build
+```
+
+## Deployment Considerations
+
+When deploying programs with imports:
+
+1. **Deploy dependencies first**: Imported programs must be deployed before programs that import them
+2. **Verify program IDs**: Ensure imported program IDs match deployed versions
+3. **Network consistency**: All programs must be on the same network (mainnet, testnet, etc.)
+
+## Example: Multi-Program Application
+
+Complete example using multiple imports:
+
+```leo
+import token.aleo;
+import credits.aleo;
+
+program exchange.aleo {
+    // Exchange rate: 1 credit = 100 tokens
+    const EXCHANGE_RATE: u64 = 100u64;
+    
+    // Swap credits for tokens
+    fn swap_credits_for_tokens(
+        credit_record: credits.credits,
+        amount: u64
+    ) -> (credits.credits, token.token) {
+        // Calculate token amount
+        let token_amount: u64 = amount * EXCHANGE_RATE;
+        
+        // Create token record
+        let tokens: token.token = token.token {
+            owner: credit_record.owner,
+            amount: token_amount,
+        };
+        
+        // Return change and tokens
+        let remaining: credits.credits = credits.credits {
+            owner: credit_record.owner,
+            microcredits: credit_record.microcredits - amount,
+        };
+        
+        return (remaining, tokens);
+    }
+    
+    // Swap tokens for credits
+    fn swap_tokens_for_credits(
+        token_record: token.token,
+        amount: u64
+    ) -> (token.token, credits.credits) {
+        // Calculate credit amount
+        let credit_amount: u64 = amount / EXCHANGE_RATE;
+        
+        // Create credit record
+        let credits_out: credits.credits = credits.credits {
+            owner: token_record.owner,
+            microcredits: credit_amount,
+        };
+        
+        // Return change and credits
+        let remaining: token.token = token.token {
+            owner: token_record.owner,
+            amount: token_record.amount - amount,
+        };
+        
+        return (remaining, credits_out);
+    }
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Programs" icon="file-code" href="/language/programs">
+    Learn about program structure
+  </Card>
+  <Card title="Records" icon="rectangle-list" href="/language/records">
+    Work with imported records
+  </Card>
+  <Card title="Data Types" icon="database" href="/language/data-types">
+    Understand type compatibility
+  </Card>
+  <Card title="Functions" icon="function" href="/language/functions">
+    Use imported types in functions
+  </Card>
+</CardGroup>

@@ -1,0 +1,121 @@
+---
+title: 'Grammar Reference'
+description: 'Complete ABNF grammar specification for the Leo programming language'
+---
+
+## Overview
+
+Leo's syntax is formally defined using Augmented Backus-Naur Form (ABNF) notation. The complete grammar specification is maintained in a separate repository and serves as the authoritative reference for the language's syntax.
+
+## Official Grammar
+
+The Leo ABNF grammar is available on GitHub:
+
+<Card title="Leo ABNF Grammar" icon="github" href="https://github.com/ProvableHQ/grammars/blob/master/leo.abnf">
+  View the complete ABNF grammar specification
+</Card>
+
+## Grammar Structure
+
+The Leo grammar is organized into several key sections:
+
+### Lexical Elements
+
+- **Keywords**: Reserved words like `program`, `fn`, `struct`, `let`, `if`, `else`, `return`, `final`
+- **Literals**: Integer, address, boolean, field, group, scalar, string literals
+- **Identifiers**: Variable names, function names, type names
+- **Operators**: Arithmetic, logical, comparison, and assignment operators
+- **Delimiters**: Parentheses, braces, brackets, semicolons, commas
+
+### Program Structure
+
+```leo
+program program_name.aleo {
+    // Program items: mappings, structs, records, functions
+}
+```
+
+### Type Declarations
+
+- **Structs**: Composite types with named fields
+- **Records**: Private data structures with owner field
+- **Mappings**: On-chain key-value storage
+
+### Statements and Expressions
+
+- **Let bindings**: Variable declarations
+- **Assignments**: Variable updates
+- **Conditionals**: `if`/`else` expressions
+- **Loops**: (Note: Leo unrolls loops at compile time)
+- **Function calls**: Both regular and finalizer functions
+- **Return statements**: Early and final returns
+
+## Parser Implementation
+
+Leo uses a two-stage parsing approach:
+
+1. **Lexer** (using the `logos` crate): Tokenizes the source code
+2. **Parser** (using `rowan`): Builds a concrete syntax tree, then converts to AST
+
+The parser implementation is located in:
+- `crates/parser-rowan/` - Rowan-based parser with grammar in `grammar.rs`
+- `crates/parser/` - Converts rowan parse tree to typed AST
+
+## Syntax Highlighting
+
+For syntax highlighting in your editor:
+
+<CardGroup cols={2}>
+  <Card title="VS Code Extension" icon="code">
+    Install the Leo language extension for syntax highlighting
+  </Card>
+  <Card title="TextMate Grammar" icon="file-code">
+    Available for editors supporting TextMate grammars
+  </Card>
+</CardGroup>
+
+## Grammar Features
+
+### Comments
+
+```leo
+// Single-line comment
+
+/* Multi-line
+   comment */
+```
+
+### Type Annotations
+
+Leo requires explicit type annotations for function parameters and return types:
+
+```leo
+fn example(x: u32, y: field) -> u64 {
+    return x as u64 + y as u64;
+}
+```
+
+### Visibility Modifiers
+
+The `public` keyword marks function parameters as publicly visible:
+
+```leo
+fn transfer(public sender: address, public amount: u64) -> Final {
+    return final { finalize_transfer(sender, amount) };
+}
+```
+
+## Related Resources
+
+<CardGroup cols={2}>
+  <Card title="Built-in Types" icon="shapes" href="/reference/built-in-types">
+    Complete reference of Leo's type system
+  </Card>
+  <Card title="Aleo Instructions" icon="microchip" href="/reference/aleo-instructions">
+    How Leo compiles to Aleo bytecode
+  </Card>
+</CardGroup>
+
+## Contributing
+
+If you find issues with the grammar or have suggestions for improvements, please open an issue or pull request in the [grammars repository](https://github.com/ProvableHQ/grammars).

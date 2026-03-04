@@ -1,0 +1,154 @@
+---
+title: CLI Overview
+description: Overview of the Leo command-line interface, global options, and common patterns
+---
+
+The Leo CLI provides a comprehensive set of commands for developing, building, testing, and deploying Aleo programs.
+
+## Installation
+
+Install the Leo CLI using the installation guide in the Getting Started section.
+
+## Command Structure
+
+All Leo commands follow the structure:
+
+```bash
+leo <COMMAND> [OPTIONS] [ARGS]
+```
+
+## Global Options
+
+The following options are available across multiple commands:
+
+<ParamField path="--private-key" type="string">
+  Private key to use for transactions. Overrides the `PRIVATE_KEY` environment variable.
+  
+  <Warning>
+    Use `APrivateKey1zkp8CZNn3yeCseEtxuVPbDCwSyhGW6yZKUYKfgXmcpoGPWH` for local devnets only. NEVER use this key in production.
+  </Warning>
+</ParamField>
+
+<ParamField path="--network" type="string">
+  Network type to use: `mainnet`, `testnet`, or `canary`. Overrides the `NETWORK` environment variable.
+</ParamField>
+
+<ParamField path="--endpoint" type="string">
+  Endpoint URL for network operations. Overrides the `ENDPOINT` environment variable.
+  
+  - Use `https://api.explorer.provable.com/v1` for live networks
+  - Use `http://localhost:3030` for local devnets
+</ParamField>
+
+<ParamField path="--devnet" type="boolean">
+  Whether the network is a devnet. Defaults to the `DEVNET` environment variable.
+</ParamField>
+
+<ParamField path="--consensus-heights" type="string">
+  Custom consensus heights (comma-separated). Only use with custom devnets.
+</ParamField>
+
+## Environment Variables
+
+Leo reads configuration from environment variables and `.env` files:
+
+- `PRIVATE_KEY` - Default private key for transactions
+- `NETWORK` - Default network (mainnet, testnet, canary)
+- `ENDPOINT` - Default network endpoint
+- `DEVNET` - Whether the network is a devnet
+- `CONSENSUS_VERSION_HEIGHTS` - Custom consensus heights
+
+## Common Patterns
+
+### Development Workflow
+
+```bash
+# Create a new project
+leo new my_project
+cd my_project
+
+# Build the program
+leo build
+
+# Run tests
+leo test
+
+# Execute locally
+leo run main "1u32" "2u32"
+
+# Deploy to network
+leo deploy --broadcast --private-key <KEY>
+
+# Execute on-chain
+leo execute main "1u32" "2u32" --broadcast
+```
+
+### Using Environment Files
+
+Create a `.env` file in your project:
+
+```bash
+PRIVATE_KEY=APrivateKey1zkp...
+NETWORK=testnet
+ENDPOINT=https://api.explorer.provable.com/v1
+```
+
+### Working with Dependencies
+
+```bash
+# Add a network dependency
+leo add credits.aleo --network
+
+# Add a local dependency
+leo add my_lib --local ../my_lib
+
+# Remove a dependency
+leo remove credits.aleo
+```
+
+## Command Categories
+
+### Project Management
+- [`leo new`](/cli/new) - Create new Leo project
+- [`leo clean`](/cli/clean) - Clean build artifacts
+- [`leo update`](/cli/update) - Update Leo CLI
+
+### Building & Testing
+- [`leo build`](/cli/build) - Compile Leo programs
+- [`leo test`](/cli/test) - Run program tests
+
+### Execution
+- [`leo run`](/cli/run) - Execute programs locally
+- [`leo execute`](/cli/execute) - Execute programs on-chain
+
+### Deployment
+- [`leo deploy`](/cli/deploy) - Deploy programs to network
+
+### Development Tools
+- [`leo devnet`](/cli/devnet) - Run local devnet
+- [`leo devnode`](/cli/devnode) - Run local devnode
+
+### Network Operations
+- [`leo query`](/cli/query) - Query network data
+- [`leo account`](/cli/account) - Manage Aleo accounts
+
+### Dependencies
+- [`leo add`](/cli/add) - Add dependencies
+- [`leo remove`](/cli/remove) - Remove dependencies
+
+## Getting Help
+
+Get help for any command:
+
+```bash
+leo --help
+leo <command> --help
+```
+
+## Verbose Output
+
+Use the `RUST_LOG` environment variable for detailed logging:
+
+```bash
+RUST_LOG=trace leo build
+```

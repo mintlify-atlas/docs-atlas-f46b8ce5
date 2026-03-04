@@ -1,0 +1,686 @@
+---
+title: Optimization Guide
+description: Performance optimization techniques for Leo programs, compiler optimizations, and best practices for efficient zero-knowledge circuits
+---
+
+Optimizing Leo programs is essential for reducing proof generation time, memory usage, and on-chain costs. This guide covers compiler optimizations, manual optimization techniques, and best practices for writing efficient zero-knowledge programs.
+
+## Understanding Performance Metrics
+
+### Key Metrics
+
+**Circuit Size**: Number of R1CS constraints in the compiled program
+- Directly proportional to proving time
+- Each multiplication creates one constraint
+- Target: Minimize constraints while maintaining functionality
+
+**Proving Time**: Time to generate a zero-knowledge proof
+- Scales roughly linearly with circuit size
+- Can range from milliseconds to minutes
+- Affected by: Circuit size, hardware (CPU, RAM)
+
+**Memory Usage**: RAM required during proof generation
+- Scales with circuit size
+- Large circuits may require 8GB+ RAM
+- Out-of-memory errors occur with very large circuits
+
+**Verification Time**: Time to verify a proof
+- Constant (~10ms) regardless of circuit size
+- This is the power of zk-SNARKs!
+
+<Info>
+Focus optimization efforts on **circuit size** as it directly impacts proving time and memory usage. Verification is already fast.
+</Info>
+
+## Automatic Compiler Optimizations
+
+The Leo compiler applies several optimization passes automatically. Understanding these helps you write code that optimizes well.
+
+### 1. Constant Propagation
+
+**What It Does**: Evaluates constant expressions at compile time.
+
+**Example**:
+```leo
+// Source code:
+const SIZE: u32 = 10u32;
+let array_size = SIZE * 2u32 + 5u32;
+let result = array_size * array_size;
+
+// After constant propagation:
+let result = 625u32;  // (10 * 2 + 5) * (10 * 2 + 5) = 625
+```
+
+**Impact**: Eliminates all multiplication constraints from constant computations.
+
+**How to Leverage**:
+- Use `const` for compile-time constants
+- Perform setup computations with constants when possible
+- Let the compiler fold constants rather than pre-computing manually
+
+### 2. Loop Unrolling
+
+**What It Does**: Expands loops with constant bounds into sequential statements.
+
+**Example**:
+```leo
+// Source code:
+let mut sum: u32 = 0u32;
+for i: u32 in 0u32..4u32 {
+    sum += values[i];
+}
+
+// After loop unrolling:
+let mut sum: u32 = 0u32;
+sum += values[0u32];
+sum += values[1u32];
+sum += values[2u32];
+sum += values[3u32];
+```
+
+**Impact**: Enables further optimizations on loop bodies. No runtime loop overhead.
+
+**Best Practices**:
+```leo
+// ✅ Good: Constant loop bound
+for i in 0u32..100u32 {
+    // Loop body
+}
+
+// ❌ Bad: Variable loop bound (won't compile)
+for i in 0u32..n {
+    // Cannot unroll - compilation error
+}
+```
+
+### 3. Dead Code Elimination (DCE)
+
+**What It Does**: Removes unused variables and computations.
+
+**Example**:
+```leo
+// Source code:
+transition compute(x: u32, y: u32) -> u32 {
+    let unused_value = expensive_computation(x);  // Never used
+    let intermediate = y * y;
+    return y + 1u32;  // intermediate is unused
+}
+
+// After DCE:
+transition compute(x: u32, y: u32) -> u32 {
+    return y + 1u32;
+}
+```
+
+**Impact**: Can dramatically reduce circuit size by removing unnecessary constraints.
+
+**Statistics**: The compiler tracks DCE effectiveness in `leo-compiler/src/compiler.rs:244-246`:
+```rust
+self.statements_before_dce = output.statements_before;
+self.statements_after_dce = output.statements_after;
+```
+
+### 4. Common Subexpression Elimination (CSE)
+
+**What It Does**: Reuses computed values instead of recomputing.
+
+**Example**:
+```leo
+// Source code:
+let a = (x * y) + z;
+let b = (x * y) + w;  // x * y computed twice
+let c = (x * y) * 2u32;  // x * y computed again
+
+// After CSE:
+let temp = x * y;  // Computed once
+let a = temp + z;
+let b = temp + w;
+let c = temp * 2u32;
+```
+
+**Impact**: Each eliminated multiplication saves one constraint.
+
+**Manual Optimization**:
+```leo
+// Instead of:
+let result = expensive_fn(a, b) + expensive_fn(a, b) * 2u32;
+
+// Write:
+let temp = expensive_fn(a, b);
+let result = temp + temp * 2u32;
+```
+
+### 5. Function Inlining
+
+**What It Does**: Replaces `inline` function calls with the function body.
+
+**Example**:
+```leo
+// Source code:
+inline helper(x: u32) -> u32 {
+    return x * x + 1u32;
+}
+
+transition main(a: u32, b: u32) -> u32 {
+    return helper(a) + helper(b);
+}
+
+// After inlining:
+transition main(a: u32, b: u32) -> u32 {
+    let temp1 = a * a + 1u32;
+    let temp2 = b * b + 1u32;
+    return temp1 + temp2;
+}
+```
+
+**Tradeoffs**:
+- **Pro**: Eliminates function call overhead, enables further optimization
+- **Con**: Can increase code size if function is called many times
+
+**Guidelines**:
+```leo
+// ✅ Good: Small, frequently used functions
+inline add_one(x: u32) -> u32 {
+    return x + 1u32;
+}
+
+// ❌ Bad: Large function body, called once
+inline complex_computation(x: u32) -> u32 {
+    // 100 lines of complex logic
+}
+```
+
+### 6. Static Single Assignment (SSA)
+
+**What It Does**: Transforms code so each variable is assigned exactly once.
+
+**Why It Matters**: Enables aggressive optimization by making data flow explicit.
+
+**Example**:
+```leo
+// Before SSA:
+let mut x = a + b;
+x = x * 2u32;
+x = x + c;
+return x;
+
+// After SSA:
+let x0 = a + b;
+let x1 = x0 * 2u32;
+let x2 = x1 + c;
+return x2;
+```
+
+**Impact**: SSA is required for constant propagation, DCE, and CSE to work effectively.
+
+<Note>
+The compiler applies SSA automatically multiple times during compilation (`leo-compiler/src/compiler.rs:221-240`). You don't need to write in SSA form, but understanding it helps explain optimization behavior.
+</Note>
+
+## Manual Optimization Techniques
+
+### Minimize Multiplications
+
+Each multiplication creates one R1CS constraint. Additions are free.
+
+```leo
+// ❌ Bad: 4 multiplications
+let result = (a * b) * (c * d) * (e * f) * (g * h);
+
+// ✅ Better: Reorder if possible
+let result = ((a * b * c * d) * (e * f * g * h));
+
+// ✅ Best: Use addition when mathematically equivalent
+// Instead of: x * 2
+let result = x + x;  // 0 constraints instead of 1
+
+// Instead of: x * 4
+let result = x + x + x + x;  // 0 constraints instead of 1
+```
+
+**Algebraic Optimizations**:
+```leo
+// ❌ Bad: (x + 1) * (x + 1) = 2 multiplications after expansion
+let result = (x + 1u32) * (x + 1u32);
+
+// ✅ Good: x * x + 2 * x + 1 = 1 multiplication
+let temp = x * x;
+let result = temp + x + x + 1u32;
+```
+
+### Choose the Right Data Structures
+
+#### Arrays vs Repeated Variables
+
+```leo
+// ❌ Bad: Dynamic array access
+let value = array[index];  // O(n) constraints to check all indices
+
+// ✅ Good: Static array access
+let value = array[5u32];  // O(1), single constraint
+
+// ✅ Good: Small, fixed set of values
+let a = array[0u32];
+let b = array[1u32];
+let c = array[2u32];
+let result = condition_a ? a : (condition_b ? b : c);
+```
+
+**Array Indexing Cost**:
+- Static index: Free (compiler resolves at compile time)
+- Dynamic index: O(n) constraints where n = array size
+
+#### Structs vs Tuples
+
+Both have similar performance, choose for readability:
+
+```leo
+// Equivalent performance:
+struct Point { x: u32, y: u32 }
+let p = Point { x: 1u32, y: 2u32 };
+
+let p = (1u32, 2u32);
+```
+
+### Optimize Cryptographic Operations
+
+#### Hash Function Selection
+
+```leo
+// ❌ Bad: SHA-256 (25,000 constraints)
+let hash = SHA256::hash_to_field(data);
+
+// ✅ Good: Poseidon2 (300 constraints)
+let hash = Poseidon2::hash_to_field(data);
+
+// ✅ Good: BHP256 (efficient for short inputs)
+let hash = BHP256::hash_to_field(data);
+```
+
+**Hash Function Comparison**:
+
+| Hash Function | Constraints | Best Use Case |
+|---------------|-------------|---------------|
+| Poseidon2 | ~300 | General purpose, multiple hashes |
+| Poseidon4 | ~400 | Hashing 4+ field elements |
+| Poseidon8 | ~500 | Hashing 8+ field elements |
+| BHP256 | ~200 | Short inputs, commitments |
+| BHP512 | ~400 | Longer inputs |
+| SHA-256 | ~25,000 | **Avoid in ZK** - use only if required for compatibility |
+
+#### Commitment Schemes
+
+```leo
+// Pedersen commitments (efficient in ZK)
+let commit = BHP256::commit_to_field(value, randomness);
+
+// Hash-based commitments
+let commit = Poseidon2::hash_to_field(value);
+```
+
+### Minimize Branching Overhead
+
+In zero-knowledge circuits, both branches of a conditional are evaluated.
+
+```leo
+// ❌ Bad: Both expensive branches execute
+if (condition) {
+    result = expensive_computation_a();
+} else {
+    result = expensive_computation_b();
+}
+// Cost: expensive_computation_a + expensive_computation_b + ternary
+
+// ✅ Good: One expensive, one cheap
+if (condition) {
+    result = expensive_computation();
+} else {
+    result = 0u32;  // Cheap default
+}
+// Cost: expensive_computation + ternary
+
+// ✅ Best: Avoid branching on expensive operations
+let base_value = cheap_computation();
+let adjustment = condition ? expensive_computation() : 0u32;
+let result = base_value + adjustment;
+```
+
+**Ternary Operator Cost**: ~3 constraints
+
+**Optimization Pattern**:
+```leo
+// Transform expensive conditionals into additions
+// Instead of:
+let result = condition ? (a * b) : 0u32;
+
+// Consider:
+let product = a * b;
+let mask = condition ? 1u32 : 0u32;
+let result = product * mask;  // May be more efficient with further optimization
+```
+
+### Batch Operations
+
+When possible, batch similar operations together:
+
+```leo
+// ❌ Bad: Multiple separate hashes
+let h1 = Poseidon2::hash_to_field(data1);
+let h2 = Poseidon2::hash_to_field(data2);
+let h3 = Poseidon2::hash_to_field(data3);
+// Cost: 3 × 300 = 900 constraints
+
+// ✅ Good: Single hash of concatenated data
+let combined_hash = Poseidon4::hash_to_field(data1, data2, data3, 0field);
+// Cost: ~400 constraints
+```
+
+### Avoid Redundant Validations
+
+```leo
+// ❌ Bad: Redundant range checks
+transition process(value: u32) -> u32 {
+    assert(value < 1000u32);
+    assert(value >= 0u32);  // Redundant: u32 is always >= 0
+    assert(value < 2000u32);  // Redundant: already checked < 1000
+    return value * 2u32;
+}
+
+// ✅ Good: Single necessary assertion
+transition process(value: u32) -> u32 {
+    assert(value < 1000u32);
+    return value * 2u32;
+}
+```
+
+### Hoist Loop-Invariant Code
+
+Move computations that don't change between iterations outside the loop:
+
+```leo
+// ❌ Bad: Recomputes constant on every iteration
+for i in 0u32..100u32 {
+    let constant_value = expensive_fn(fixed_param);  // Same result every time
+    array[i] = array[i] + constant_value;
+}
+// Cost: 100 × expensive_fn constraints
+
+// ✅ Good: Compute once outside loop
+let constant_value = expensive_fn(fixed_param);
+for i in 0u32..100u32 {
+    array[i] = array[i] + constant_value;
+}
+// Cost: 1 × expensive_fn constraints
+```
+
+<Info>
+The compiler doesn't automatically hoist loop-invariant code (loops are unrolled first). You must manually move invariant computations outside loops.
+</Info>
+
+## Advanced Optimization Patterns
+
+### Precomputed Tables
+
+For expensive operations on small domains, use lookup tables:
+
+```leo
+// ❌ Bad: Compute square root repeatedly
+function expensive_sqrt(x: u32) -> u32 {
+    // ... complex square root circuit ...
+}
+
+// ✅ Good: Precomputed table for small domain
+const SQRT_TABLE: [u32; 16] = [
+    0u32, 1u32, 1u32, 1u32,  // sqrt(0-3)
+    2u32, 2u32, 2u32, 2u32,  // sqrt(4-7)
+    2u32, 3u32, 3u32, 3u32,  // sqrt(8-11)
+    3u32, 3u32, 3u32, 3u32,  // sqrt(12-15)
+];
+
+function fast_sqrt(x: u32) -> u32 {
+    assert(x < 16u32);
+    return SQRT_TABLE[x];  // Static access is free
+}
+```
+
+### Lazy Evaluation
+
+Defer expensive computations until necessary:
+
+```leo
+// ❌ Bad: Always computes both values
+transition process(flag: bool, data: u32) -> u32 {
+    let expensive_a = expensive_computation_a(data);
+    let expensive_b = expensive_computation_b(data);
+    return flag ? expensive_a : expensive_b;
+}
+// Cost: Both expensive computations
+
+// ✅ Good: Compute only the needed branch (when possible)
+transition process(flag: bool, data: u32) -> u32 {
+    // Note: In ZK circuits, both branches still execute after flattening
+    // This pattern helps if you can restructure to avoid some work
+    
+    if (flag) {
+        return expensive_computation_a(data);
+    } else {
+        return expensive_computation_b(data);
+    }
+}
+// After flattening, both still execute. For true lazy evaluation,
+// consider restructuring the algorithm.
+```
+
+**Reality Check**: Due to flattening, true lazy evaluation is limited in ZK circuits. Focus on:
+1. Making both branches efficient
+2. Ensuring one branch is trivial when possible
+3. Restructuring algorithms to avoid branching on expensive operations
+
+### Algebraic Optimizations
+
+Use mathematical identities to reduce operations:
+
+```leo
+// ❌ Bad: (a + b)² = a² + 2ab + b² (3 multiplications)
+let result = (a + b) * (a + b);
+
+// ✅ Good: Expand and reuse (2 multiplications)
+let a_sq = a * a;
+let b_sq = b * b;
+let ab = a * b;
+let two_ab = ab + ab;  // Addition is free
+let result = a_sq + two_ab + b_sq;
+
+// Example: Difference of squares
+// ❌ Bad: a² - b² (2 multiplications)
+let result = (a * a) - (b * b);
+
+// ✅ Good: (a + b)(a - b) (1 multiplication if a+b or a-b is reused)
+let sum = a + b;
+let diff = a - b;
+let result = sum * diff;
+```
+
+## Profiling and Measurement
+
+### Enable Compiler Statistics
+
+The compiler tracks optimization effectiveness:
+
+```bash
+# Compile with verbose output
+leo build --verbose
+
+# Look for dead code elimination stats
+# Output includes:
+# "Statements before DCE: 1500"
+# "Statements after DCE: 900"
+# (40% reduction in this example)
+```
+
+### Measure Circuit Size
+
+Count the constraints in generated Aleo code:
+
+```bash
+# Build the program
+leo build
+
+# Examine the generated .aleo file
+cat build/main.aleo
+
+# Count key operations (each is ~1 constraint):
+# - mul, mul.w: Multiplication
+# - ternary: Conditional selection
+# - hash, commit: Cryptographic operations
+# - is.eq, is.neq: Comparisons
+```
+
+### Benchmark Proving Time
+
+```bash
+# Run with timing
+time leo run function_name inputs...
+
+# The majority of time is proof generation
+# Track changes after optimizations
+```
+
+## Best Practices Checklist
+
+### Algorithm Design
+
+- [ ] Use algorithms with minimal multiplications
+- [ ] Avoid dynamic loops (use fixed iteration counts)
+- [ ] Prefer iterative over recursive approaches
+- [ ] Batch similar operations together
+- [ ] Use lookup tables for small domains
+
+### Data Types
+
+- [ ] Use appropriate integer sizes (u8 for small values, not u128)
+- [ ] Prefer static array indexing over dynamic
+- [ ] Use structs for clarity, tuples for brevity (equivalent performance)
+- [ ] Avoid unnecessarily large arrays
+
+### Cryptography
+
+- [ ] Use Poseidon2/Poseidon4/Poseidon8 for hashing
+- [ ] Use BHP for commitments
+- [ ] Avoid SHA-256 unless required for compatibility
+- [ ] Batch cryptographic operations when possible
+
+### Control Flow
+
+- [ ] Minimize conditional branches
+- [ ] Make one branch trivial when possible
+- [ ] Hoist loop-invariant code outside loops
+- [ ] Unroll small loops (automatically done by compiler)
+
+### Code Organization
+
+- [ ] Use `inline` for small, frequently called functions
+- [ ] Use `const` for compile-time constants
+- [ ] Extract common subexpressions into variables
+- [ ] Remove dead code and unused variables
+
+### Testing and Validation
+
+- [ ] Profile before and after optimizations
+- [ ] Measure circuit size (statement count)
+- [ ] Benchmark proving time
+- [ ] Verify correctness after each optimization
+
+## Common Optimization Mistakes
+
+### 1. Premature Optimization
+
+```leo
+// ❌ Bad: Micro-optimizing before measuring
+let result = x + x + x + x;  // Instead of x * 4
+
+// ✅ Good: Optimize bottlenecks identified by profiling
+// Focus on reducing expensive operations like hashes and dynamic array accesses
+```
+
+**Rule**: Profile first, optimize bottlenecks second.
+
+### 2. Over-Inlining
+
+```leo
+// ❌ Bad: Inlining large function called many times
+inline large_function(x: u32) -> u32 {
+    // 50 lines of complex logic
+}
+
+transition main() -> u32 {
+    return large_function(1u32) + large_function(2u32) + 
+           large_function(3u32) + large_function(4u32);
+}
+// Result: 4× code duplication, may hurt other optimizations
+
+// ✅ Good: Inline only small, frequently used functions
+function large_function(x: u32) -> u32 {
+    // 50 lines of complex logic
+}
+```
+
+### 3. Ignoring Algorithmic Complexity
+
+```leo
+// ❌ Bad: O(n²) algorithm
+for i in 0u32..100u32 {
+    for j in 0u32..100u32 {
+        result += array[i] * array[j];
+    }
+}
+// 10,000 multiplications = 10,000 constraints
+
+// ✅ Good: O(n) algorithm (when mathematically possible)
+let sum = 0u32;
+for i in 0u32..100u32 {
+    sum += array[i];
+}
+let result = sum * sum;
+// 101 multiplications = 101 constraints (98% reduction!)
+```
+
+**Rule**: Algorithmic improvements always beat micro-optimizations.
+
+### 4. Unnecessary Precision
+
+```leo
+// ❌ Bad: Using u128 for small values
+let counter: u128 = 0u128;
+for i in 0u32..100u32 {
+    counter += 1u128;
+}
+
+// ✅ Good: Use appropriate integer size
+let counter: u32 = 0u32;
+for i in 0u32..100u32 {
+    counter += 1u32;
+}
+```
+
+**Rule**: Use the smallest integer type that fits your value range.
+
+## Optimization Workflow
+
+1. **Implement**: Write clear, correct code first
+2. **Profile**: Measure circuit size and proving time
+3. **Identify**: Find bottlenecks (expensive operations, large loops)
+4. **Optimize**: Apply targeted optimizations
+5. **Measure**: Verify improvement
+6. **Repeat**: Iterate until performance goals are met
+
+<Warning>
+**Always verify correctness** after optimizations. Use comprehensive test cases to ensure optimized code produces the same results as the original.
+</Warning>
+
+## Further Reading
+
+- [Compiler Architecture](/advanced/compiler-architecture) - How the compiler is structured
+- [Compiler Passes](/advanced/compiler-passes) - What optimizations the compiler applies
+- [Zero-Knowledge Concepts](/advanced/zero-knowledge-concepts) - Understanding circuit constraints
+- [Operators](/language/operators) - Language features and their costs

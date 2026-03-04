@@ -1,0 +1,483 @@
+---
+title: Statements
+description: Learn about variable declarations, assignments, conditionals, loops, and control flow in Leo
+---
+
+## Statement Types
+
+Leo supports several types of statements for controlling program flow and managing state.
+
+## Variable Declarations
+
+### Let Bindings
+
+Declare immutable variables with `let`:
+
+```leo
+let balance: u64 = 1000u64;
+let recipient: address = self.caller;
+let is_valid: bool = true;
+```
+
+Type annotations are optional when the type can be inferred:
+
+```leo
+let amount = 100u64;        // Type inferred as u64
+let sum = amount + 50u64;   // Type inferred as u64
+```
+
+### Constant Declarations
+
+Declare compile-time constants with `const`:
+
+```leo
+const MAX_SUPPLY: u64 = 1000000u64;
+const DECIMALS: u8 = 6u8;
+const ZERO_ADDRESS: address = aleo1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq3ljyzc;
+```
+
+<Note>
+Constants must be initialized with literal values or constant expressions. They cannot depend on runtime values.
+</Note>
+
+## Assignments
+
+### Simple Assignment
+
+Reassign variables (for mutable contexts):
+
+```leo
+let r1c1: u8 = board.r1.c1;
+
+if row == 1u8 && col == 1u8 && r1c1 == 0u8 {
+    r1c1 = player;
+}
+```
+
+### Destructuring Assignment
+
+Unpack tuples and structs:
+
+```leo
+// Tuple destructuring
+let (remaining, transferred) = transfer_private(sender, receiver, amount);
+
+// Struct member access
+let r1c1: u8 = board.r1.c1;
+let r1c2: u8 = board.r1.c2;
+let r1c3: u8 = board.r1.c3;
+```
+
+## Conditional Statements
+
+### If Statements
+
+Execute code based on conditions:
+
+```leo
+if player == 1u8 || player == 2u8 {
+    // Valid player
+    proceed();
+}
+```
+
+### If-Else Statements
+
+Provide alternative execution paths:
+
+```leo
+if check_for_win(updated, 1u8) {
+    return (updated, 1u8);
+} else if check_for_win(updated, 2u8) {
+    return (updated, 2u8);
+} else {
+    return (updated, 0u8);
+}
+```
+
+### Nested Conditions
+
+Combine multiple conditions:
+
+```leo
+if row == 1u8 && col == 1u8 && r1c1 == 0u8 {
+    r1c1 = player;
+} else if row == 1u8 && col == 2u8 && r1c2 == 0u8 {
+    r1c2 = player;
+} else if row == 1u8 && col == 3u8 && r1c3 == 0u8 {
+    r1c3 = player;
+} else if row == 2u8 && col == 1u8 && r2c1 == 0u8 {
+    r2c1 = player;
+}
+```
+
+## Loops
+
+### For Loops
+
+Iterate over a range of values:
+
+```leo
+// Exclusive range: 0 to 9
+for i: u32 in 0u32..10u32 {
+    sum = sum + i;
+}
+
+// Inclusive range: 0 to 10
+for i: u32 in 0u32..=10u32 {
+    total = total + i;
+}
+```
+
+<Note>
+Loop bounds must be known at compile time. Leo unrolls all loops during compilation.
+</Note>
+
+### Loop Examples
+
+```leo
+// Initialize array elements
+let mut arr: [u32; 5] = [0u32; 5];
+for i: u32 in 0u32..5u32 {
+    arr[i] = i * 2u32;
+}
+
+// Sum array elements
+let numbers: [u32; 10] = [1u32, 2u32, 3u32, 4u32, 5u32, 6u32, 7u32, 8u32, 9u32, 10u32];
+let mut sum: u32 = 0u32;
+for i: u32 in 0u32..10u32 {
+    sum = sum + numbers[i];
+}
+```
+
+## Assertions
+
+### Assert Statement
+
+Verify conditions and fail if false:
+
+```leo
+assert(player == 1u8 || player == 2u8);
+assert(1u8 <= row && row <= 3u8);
+assert(1u8 <= col && col <= 3u8);
+```
+
+Assertions in finalize functions:
+
+```leo
+final fn finalize_play() {
+    // Check lottery expiration
+    assert(block.height <= 1000u32);
+    
+    // Check random condition
+    assert(ChaCha::rand_bool());
+    
+    // Check winner limit
+    let winners: u8 = num_winners.get_or_use(0u8, 0u8);
+    assert(winners < 5u8);
+}
+```
+
+<Warning>
+If an assertion fails, the entire transaction is reverted. Use assertions for critical invariants and validation.
+</Warning>
+
+## Return Statements
+
+### Simple Returns
+
+Return a single value:
+
+```leo
+fn get_max_supply() -> u64 {
+    return MAX_SUPPLY;
+}
+
+fn new() -> Board {
+    return Board {
+        r1: Row { c1: 0u8, c2: 0u8, c3: 0u8 },
+        r2: Row { c1: 0u8, c2: 0u8, c3: 0u8 },
+        r3: Row { c1: 0u8, c2: 0u8, c3: 0u8 },
+    };
+}
+```
+
+### Multiple Returns
+
+Return tuples for multiple values:
+
+```leo
+fn transfer_private(sender: token, receiver: address, amount: u64) 
+    -> (token, token) {
+    let difference: u64 = sender.amount - amount;
+    
+    let remaining: token = token {
+        owner: sender.owner,
+        amount: difference,
+    };
+    
+    let transferred: token = token {
+        owner: receiver,
+        amount: amount,
+    };
+    
+    return (remaining, transferred);
+}
+```
+
+### Early Returns
+
+Return early from functions:
+
+```leo
+fn check_for_win(b: Board, p: u8) -> bool {
+    return
+        (b.r1.c1 == p && b.r1.c2 == p && b.r1.c3 == p) || // row 1
+        (b.r2.c1 == p && b.r2.c2 == p && b.r2.c3 == p) || // row 2
+        (b.r3.c1 == p && b.r3.c3 == p && b.r3.c3 == p) || // row 3
+        (b.r1.c1 == p && b.r2.c1 == p && b.r3.c1 == p) || // column 1
+        (b.r1.c2 == p && b.r2.c3 == p && b.r3.c2 == p) || // column 2
+        (b.r1.c3 == p && b.r2.c3 == p && b.r3.c3 == p) || // column 3
+        (b.r1.c1 == p && b.r2.c2 == p && b.r3.c3 == p) || // diagonal
+        (b.r1.c3 == p && b.r2.c2 == p && b.r3.c1 == p);   // other diagonal
+}
+```
+
+## Block Statements
+
+### Scope Blocks
+
+Create new scopes with curly braces:
+
+```leo
+{
+    let temp: u64 = calculate_value();
+    process(temp);
+    // temp goes out of scope here
+}
+```
+
+### Function Bodies
+
+Function bodies are block statements:
+
+```leo
+fn mint_private(receiver: address, amount: u64) -> token {
+    return token {
+        owner: receiver,
+        amount: amount,
+    };
+}
+```
+
+## Expression Statements
+
+Expressions can be used as statements:
+
+```leo
+// Function call as statement
+validate_player(player);
+
+// Method call as statement
+token_balance.add(amount);
+```
+
+## Statement Composition
+
+### Complex Control Flow
+
+Combine statements for complex logic:
+
+```leo
+fn make_move(player: u8, row: u8, col: u8, board: Board) -> (Board, u8) {
+    // Assertions
+    assert(player == 1u8 || player == 2u8);
+    assert(1u8 <= row && row <= 3u8);
+    assert(1u8 <= col && col <= 3u8);
+    
+    // Variable declarations
+    let r1c1: u8 = board.r1.c1;
+    let r1c2: u8 = board.r1.c2;
+    let r1c3: u8 = board.r1.c3;
+    // ... more variables
+    
+    // Conditional updates
+    if row == 1u8 && col == 1u8 && r1c1 == 0u8 {
+        r1c1 = player;
+    } else if row == 1u8 && col == 2u8 && r1c2 == 0u8 {
+        r1c2 = player;
+    }
+    // ... more conditions
+    
+    // Create updated board
+    let updated: Board = Board {
+        r1: Row { c1: r1c1, c2: r1c2, c3: r1c3 },
+        r2: Row { c1: r2c1, c2: r2c2, c3: r2c3 },
+        r3: Row { c1: r3c1, c2: r3c2, c3: r3c3 },
+    };
+    
+    // Check win conditions and return
+    if check_for_win(updated, 1u8) {
+        return (updated, 1u8);
+    } else if check_for_win(updated, 2u8) {
+        return (updated, 2u8);
+    } else {
+        return (updated, 0u8);
+    }
+}
+```
+
+## Best Practices
+
+### 1. Initialize Variables
+
+```leo
+// Good: Clear initialization
+let balance: u64 = 0u64;
+let is_valid: bool = false;
+
+// Avoid: Uninitialized variables
+let balance: u64;  // Compilation error
+```
+
+### 2. Use Descriptive Names
+
+```leo
+// Good: Clear intent
+let sender_balance: u64 = sender.amount;
+let receiver_balance: u64 = receiver.amount;
+
+// Avoid: Unclear names
+let x: u64 = sender.amount;
+let y: u64 = receiver.amount;
+```
+
+### 3. Limit Nesting Depth
+
+```leo
+// Good: Early returns reduce nesting
+fn validate(value: u32) -> bool {
+    if value < MIN {
+        return false;
+    }
+    if value > MAX {
+        return false;
+    }
+    return true;
+}
+
+// Avoid: Deep nesting
+fn validate(value: u32) -> bool {
+    if value >= MIN {
+        if value <= MAX {
+            return true;
+        } else {
+            return false;
+        }
+    } else {
+        return false;
+    }
+}
+```
+
+### 4. Assert Preconditions Early
+
+```leo
+// Good: Validate inputs first
+fn transfer(sender: token, amount: u64) -> token {
+    assert(sender.amount >= amount);
+    
+    return token {
+        owner: sender.owner,
+        amount: sender.amount - amount,
+    };
+}
+```
+
+### 5. Group Related Operations
+
+```leo
+// Good: Logical grouping
+fn process() {
+    // Validation
+    assert(is_valid());
+    assert(amount > 0u64);
+    
+    // Calculation
+    let fee: u64 = calculate_fee(amount);
+    let net: u64 = amount - fee;
+    
+    // State updates
+    update_balance(net);
+    record_transaction(fee);
+}
+```
+
+## Common Patterns
+
+### Guard Clauses
+
+```leo
+fn process_payment(amount: u64, sender: token) -> token {
+    // Guard against invalid inputs
+    if amount == 0u64 {
+        return sender;
+    }
+    if sender.amount < amount {
+        return sender;
+    }
+    
+    // Main logic
+    return token {
+        owner: sender.owner,
+        amount: sender.amount - amount,
+    };
+}
+```
+
+### State Machines
+
+```leo
+const STATE_PENDING: u8 = 0u8;
+const STATE_ACTIVE: u8 = 1u8;
+const STATE_COMPLETE: u8 = 2u8;
+
+fn transition_state(current: u8, event: u8) -> u8 {
+    if current == STATE_PENDING && event == EVENT_START {
+        return STATE_ACTIVE;
+    } else if current == STATE_ACTIVE && event == EVENT_FINISH {
+        return STATE_COMPLETE;
+    } else {
+        return current;
+    }
+}
+```
+
+### Accumulation
+
+```leo
+fn sum_array(arr: [u32; 10]) -> u32 {
+    let mut total: u32 = 0u32;
+    for i: u32 in 0u32..10u32 {
+        total = total + arr[i];
+    }
+    return total;
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Functions" icon="function" href="/language/functions">
+    Build complete functions
+  </Card>
+  <Card title="Operators" icon="code" href="/language/operators">
+    Use operators in statements
+  </Card>
+  <Card title="Data Types" icon="database" href="/language/data-types">
+    Work with different types
+  </Card>
+  <Card title="Finalize" icon="flag-checkered" href="/language/finalize">
+    On-chain state changes
+  </Card>
+</CardGroup>

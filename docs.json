@@ -1,122 +1,130 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
-  "name": "Mint Starter Kit",
+  "name": "Leo",
+  "theme": "aspen",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#848484",
+    "light": "#171717",
+    "dark": "#e7e7e7"
   },
-  "favicon": "/favicon.svg",
+  "favicon": "https://media.brand.dev/8f409798-0999-4420-84d9-4ba2724869dd.png",
+  "logo": {
+    "light": "https://media.brand.dev/f6187910-d92f-435d-8574-7667a4cf9096.svg",
+    "dark": "https://media.brand.dev/f6187910-d92f-435d-8574-7667a4cf9096.svg"
+  },
+  "navbar": {
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/provablehq/leo"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/provablehq/leo",
+      "twitter": "https://twitter.com/ProvableHQ"
+    }
+  },
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "Documentation",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Get Started",
             "pages": [
-              "index",
-              "quickstart",
-              "development"
+              "introduction",
+              "installation",
+              "quickstart"
             ]
           },
           {
-            "group": "Customization",
+            "group": "Leo Language",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "language/overview",
+              "language/programs",
+              "language/data-types",
+              "language/operators",
+              "language/statements",
+              "language/functions",
+              "language/records",
+              "language/mappings",
+              "language/finalize",
+              "language/imports"
             ]
           },
           {
-            "group": "Writing content",
+            "group": "CLI Commands",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
+              "cli/overview",
+              "cli/new",
+              "cli/build",
+              "cli/run",
+              "cli/execute",
+              "cli/test",
+              "cli/deploy",
+              "cli/devnet",
+              "cli/devnode",
+              "cli/query",
+              "cli/account",
+              "cli/add",
+              "cli/remove",
+              "cli/clean",
+              "cli/update"
             ]
           },
           {
-            "group": "AI tools",
+            "group": "Development",
             "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "development/writing-programs",
+              "development/testing",
+              "development/debugging",
+              "development/package-management",
+              "development/best-practices"
+            ]
+          },
+          {
+            "group": "Advanced",
+            "pages": [
+              "advanced/compiler-architecture",
+              "advanced/compiler-passes",
+              "advanced/zero-knowledge-concepts",
+              "advanced/optimization"
             ]
           }
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "Reference",
         "groups": [
           {
-            "group": "API documentation",
+            "group": "Language Reference",
             "pages": [
-              "api-reference/introduction"
+              "reference/grammar",
+              "reference/built-in-types",
+              "reference/standard-library",
+              "reference/aleo-instructions"
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "Examples",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "examples/overview",
+              "examples/token",
+              "examples/tictactoe",
+              "examples/lottery"
+            ]
+          },
+          {
+            "group": "Resources",
+            "pages": [
+              "resources/troubleshooting",
+              "resources/faq",
+              "resources/contributing",
+              "resources/changelog"
             ]
           }
         ]
       }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
-    }
-  },
-  "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
-  },
-  "navbar": {
-    "links": [
-      {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
-      }
-    ],
-    "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
-    }
-  },
-  "contextual": {
-    "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
-  },
-  "footer": {
-    "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
-    }
+    ]
   }
 }

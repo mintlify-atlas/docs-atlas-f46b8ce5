@@ -1,0 +1,446 @@
+---
+title: Operators
+description: Comprehensive guide to arithmetic, logical, bitwise, and comparison operators in Leo
+---
+
+## Operator Overview
+
+Leo provides a rich set of operators for working with values. All operations are checked for correctness at compile time and during execution.
+
+## Arithmetic Operators
+
+### Basic Arithmetic
+
+Standard arithmetic operations with overflow checking:
+
+```leo
+let a: u32 = 10u32;
+let b: u32 = 5u32;
+
+let sum: u32 = a + b;        // 15u32
+let difference: u32 = a - b; // 5u32
+let product: u32 = a * b;    // 50u32
+let quotient: u32 = a / b;   // 2u32
+let remainder: u32 = a % b;  // 0u32
+let power: u32 = a ** b;     // 100000u32
+```
+
+<Warning>
+Arithmetic operations on integers check for overflow. If an operation would overflow, the program will fail at runtime.
+</Warning>
+
+### Wrapping Arithmetic
+
+For intentional wraparound behavior, use wrapping methods:
+
+```leo
+let max: u8 = 255u8;
+let one: u8 = 1u8;
+
+// These wrap around instead of failing
+let wrapped_sum: u8 = max.add_wrapped(one);      // 0u8
+let wrapped_product: u8 = max.mul_wrapped(2u8);  // 254u8
+let wrapped_power: u8 = 2u8.pow_wrapped(8u8);    // 0u8
+
+let min: u8 = 0u8;
+let wrapped_diff: u8 = min.sub_wrapped(one);     // 255u8
+```
+
+### Method Syntax
+
+All arithmetic operations can also be called as methods:
+
+```leo
+let a: u32 = 10u32;
+let b: u32 = 5u32;
+
+let sum: u32 = a.add(b);     // Equivalent to a + b
+let product: u32 = a.mul(b); // Equivalent to a * b
+let power: u32 = a.pow(b);   // Equivalent to a ** b
+```
+
+## Comparison Operators
+
+Comparison operators return boolean values:
+
+```leo
+let a: u32 = 10u32;
+let b: u32 = 5u32;
+
+let is_equal: bool = a == b;      // false
+let is_not_equal: bool = a != b;  // true
+let is_greater: bool = a > b;     // true
+let is_less: bool = a < b;        // false
+let is_gte: bool = a >= b;        // true
+let is_lte: bool = a <= b;        // false
+```
+
+### Method Syntax
+
+Comparisons can use method syntax:
+
+```leo
+let result: bool = a.eq(b);   // Equivalent to a == b
+let result: bool = a.neq(b);  // Equivalent to a != b
+let result: bool = a.gt(b);   // Equivalent to a > b
+let result: bool = a.lt(b);   // Equivalent to a < b
+let result: bool = a.gte(b);  // Equivalent to a >= b
+let result: bool = a.lte(b);  // Equivalent to a <= b
+```
+
+## Logical Operators
+
+Logical operators work with boolean values:
+
+```leo
+let a: bool = true;
+let b: bool = false;
+
+let and_result: bool = a && b;  // false (logical AND)
+let or_result: bool = a || b;   // true (logical OR)
+let not_result: bool = !a;      // false (logical NOT)
+```
+
+### Short-Circuit Evaluation
+
+Logical AND (`&&`) and OR (`||`) use short-circuit evaluation:
+
+```leo
+// Second condition is only evaluated if first is true
+if player == 1u8 && check_for_win(board, player) {
+    return (board, 1u8);
+}
+
+// Second condition is only evaluated if first is false
+if is_valid || try_recover() {
+    proceed();
+}
+```
+
+## Bitwise Operators
+
+Bitwise operations manipulate individual bits:
+
+```leo
+let a: u8 = 0b11001100u8;  // 204
+let b: u8 = 0b10101010u8;  // 170
+
+let and: u8 = a & b;       // 0b10001000 = 136
+let or: u8 = a | b;        // 0b11101110 = 238
+let xor: u8 = a.xor(b);    // 0b01100110 = 102
+let not: u8 = a.not();     // 0b00110011 = 51
+```
+
+### Shift Operators
+
+Shift operations move bits left or right:
+
+```leo
+let value: u8 = 0b00001111u8;  // 15
+
+let left: u8 = value << 2u8;   // 0b00111100 = 60
+let right: u8 = value >> 2u8;  // 0b00000011 = 3
+
+// Method syntax
+let left: u8 = value.shl(2u8);
+let right: u8 = value.shr(2u8);
+
+// Wrapping shifts
+let wrapped: u8 = value.shl_wrapped(7u8);
+```
+
+<Note>
+Shift amounts that exceed the bit width will cause the operation to fail. Use wrapping versions for intentional wraparound.
+</Note>
+
+## Unary Operators
+
+### Negation
+
+Negate numeric values:
+
+```leo
+let positive: i32 = 42i32;
+let negative: i32 = -positive;  // -42i32
+
+// Method syntax
+let neg: i32 = positive.neg();  // -42i32
+```
+
+<Warning>
+Negation is only available for signed integer types (`i8`, `i16`, `i32`, `i64`, `i128`).
+</Warning>
+
+### Logical NOT
+
+Invert boolean values:
+
+```leo
+let is_valid: bool = true;
+let is_invalid: bool = !is_valid;  // false
+
+// Method syntax  
+let inverted: bool = is_valid.not();  // false
+```
+
+## Cryptographic Operations
+
+### Field Operations
+
+Field elements support arithmetic:
+
+```leo
+let a: field = 42field;
+let b: field = 10field;
+
+let sum: field = a + b;        // Addition
+let product: field = a * b;    // Multiplication
+let inverse: field = a.inv();  // Multiplicative inverse
+```
+
+### Group Operations
+
+Group elements support elliptic curve operations:
+
+```leo
+let point: group = 0group;
+
+let doubled: group = point.double();              // Point doubling
+let squared: group = point.square();              // Point squaring
+let x_coord: field = point.to_x_coordinate();     // Get x-coordinate
+let y_coord: field = point.to_y_coordinate();     // Get y-coordinate
+```
+
+### Scalar Operations
+
+Scalars support modular arithmetic:
+
+```leo
+let s: scalar = 5scalar;
+
+let doubled: scalar = s.double();     // 10scalar
+let inverse: scalar = s.inv();        // Multiplicative inverse
+let squared: scalar = s.square();     // 25scalar
+```
+
+## Special Operations
+
+### Absolute Value
+
+Get the absolute value of signed integers:
+
+```leo
+let negative: i32 = -42i32;
+let positive: i32 = negative.abs();  // 42i32
+
+// Wrapping version
+let min: i8 = -128i8;
+let wrapped: i8 = min.abs_wrapped(); // -128i8 (cannot represent 128 in i8)
+```
+
+### Modulo Operation
+
+Compute modulo (different from remainder):
+
+```leo
+let a: u32 = 17u32;
+let b: u32 = 5u32;
+
+let remainder: u32 = a % b;      // 2u32
+let modulo: u32 = a.mod(b);      // 2u32
+
+// For negative numbers (signed integers)
+let c: i32 = -17i32;
+let d: i32 = 5i32;
+let rem: i32 = c % d;            // -2i32 (remainder)
+let mod_result: i32 = c.mod(d);  // 3i32 (modulo)
+```
+
+### Square Root
+
+Compute square root for field and scalar types:
+
+```leo
+let value: field = 16field;
+let root: field = value.sqrt();  // 4field
+
+let s: scalar = 25scalar;
+let s_root: scalar = s.square_root();  // 5scalar
+```
+
+## Operator Precedence
+
+Operators are evaluated in the following order (highest to lowest):
+
+1. **Postfix**: `.method()`, `[index]`, `.field`
+2. **Unary**: `-`, `!`, `.not()`, `.neg()`
+3. **Cast**: `as`
+4. **Power**: `**`
+5. **Multiplicative**: `*`, `/`, `%`
+6. **Additive**: `+`, `-`
+7. **Shift**: `<<`, `>>`
+8. **Bitwise AND**: `&`
+9. **Bitwise XOR**: `^`
+10. **Bitwise OR**: `|`
+11. **Comparison**: `==`, `!=`, `<`, `>`, `<=`, `>=`
+12. **Logical AND**: `&&`
+13. **Logical OR**: `||`
+14. **Ternary**: `condition ? true_expr : false_expr`
+
+### Precedence Examples
+
+```leo
+// Multiplication before addition
+let result: u32 = 2u32 + 3u32 * 4u32;  // 14u32, not 20u32
+
+// Parentheses override precedence
+let result: u32 = (2u32 + 3u32) * 4u32;  // 20u32
+
+// Comparison before logical
+let check: bool = a > 5u32 && b < 10u32;  // (a > 5u32) && (b < 10u32)
+```
+
+## Ternary Operator
+
+The ternary operator provides conditional expressions:
+
+```leo
+let max: u32 = a > b ? a : b;
+
+let status: u8 = check_for_win(board, 1u8) ? 1u8 : 
+                 check_for_win(board, 2u8) ? 2u8 : 
+                 0u8;
+
+let result: token = amount > 0u64 
+    ? token { owner: receiver, amount: amount }
+    : token { owner: receiver, amount: 0u64 };
+```
+
+## Type-Specific Operators
+
+### Address Operations
+
+Addresses support only equality comparison:
+
+```leo
+let addr1: address = self.caller;
+let addr2: address = receiver;
+
+let same: bool = addr1 == addr2;
+let different: bool = addr1 != addr2;
+```
+
+### Boolean Operations
+
+Booleans support logical and bitwise operations:
+
+```leo
+let a: bool = true;
+let b: bool = false;
+
+// Logical (short-circuit)
+let and: bool = a && b;
+let or: bool = a || b;
+
+// Bitwise/Boolean operations
+let nand: bool = a.nand(b);  // !(a && b)
+let nor: bool = a.nor(b);    // !(a || b)
+let xor: bool = a.xor(b);    // a != b
+```
+
+## Best Practices
+
+### 1. Use Checked Operations
+
+```leo
+// Good: Explicit overflow checking
+let balance: u64 = sender.amount - amount;
+
+// Use wrapping only when intentional
+let wrapped: u8 = value.add_wrapped(increment);
+```
+
+### 2. Prefer Operator Syntax
+
+```leo
+// Good: Clear and concise
+let sum: u32 = a + b;
+let is_valid: bool = count > 0u32 && count < max;
+
+// Avoid: Unnecessarily verbose
+let sum: u32 = a.add(b);
+let is_valid: bool = count.gt(0u32).and(count.lt(max));
+```
+
+### 3. Use Parentheses for Clarity
+
+```leo
+// Good: Intent is clear
+let result: u32 = (a + b) * c;
+let check: bool = (x > 0u32) && (y > 0u32);
+
+// Avoid: Requires knowing precedence
+let result: u32 = a + b * c;
+```
+
+### 4. Validate Before Operations
+
+```leo
+// Good: Check before potentially failing operation
+assert(sender.amount >= amount);
+let difference: u64 = sender.amount - amount;
+
+// Good: Guard against division by zero
+assert(divisor != 0u32);
+let quotient: u32 = dividend / divisor;
+```
+
+## Common Patterns
+
+### Range Checking
+
+```leo
+fn validate_range(value: u8, min: u8, max: u8) -> bool {
+    return value >= min && value <= max;
+}
+
+// Usage
+assert(validate_range(row, 1u8, 3u8));
+```
+
+### Bitwise Flags
+
+```leo
+const FLAG_A: u8 = 0b00000001u8;
+const FLAG_B: u8 = 0b00000010u8;
+const FLAG_C: u8 = 0b00000100u8;
+
+let flags: u8 = FLAG_A | FLAG_C;  // Set flags A and C
+let has_flag_a: bool = (flags & FLAG_A) != 0u8;
+```
+
+### Min/Max
+
+```leo
+fn max(a: u32, b: u32) -> u32 {
+    return a > b ? a : b;
+}
+
+fn min(a: u32, b: u32) -> u32 {
+    return a < b ? a : b;
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Statements" icon="brackets-curly" href="/language/statements">
+    Use operators in statements
+  </Card>
+  <Card title="Functions" icon="function" href="/language/functions">
+    Build expressions in functions
+  </Card>
+  <Card title="Data Types" icon="database" href="/language/data-types">
+    Understand type compatibility
+  </Card>
+</CardGroup>

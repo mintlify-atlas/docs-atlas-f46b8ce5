@@ -1,0 +1,287 @@
+---
+title: leo run
+description: Execute Leo programs locally without generating proofs
+---
+
+The `leo run` command executes Leo programs locally in an off-chain environment without generating cryptographic proofs. This is ideal for rapid testing and development.
+
+## Syntax
+
+```bash
+leo run [NAME] [INPUTS...] [OPTIONS]
+```
+
+## Arguments
+
+<ParamField path="NAME" type="string" default="main">
+  The function to execute. Can be:
+  - Function name only: `main` (uses program from `program.json`)
+  - Qualified name: `hello_world.aleo/main`
+</ParamField>
+
+<ParamField path="INPUTS" type="string[]">
+  Program inputs. Format depends on the input type:
+  - Literals: `1u32`, `true`, `5field`
+  - Records (plaintext): `{ owner: aleo1..., data: 5u64 }`
+  - Records (ciphertext): `record1...` (automatically decrypted)
+</ParamField>
+
+## Options
+
+### Network Options
+
+<ParamField path="--network" type="string">
+  Network type: `mainnet`, `testnet`, or `canary`. Defaults to `testnet`.
+</ParamField>
+
+<ParamField path="--endpoint" type="string">
+  Endpoint URL for network operations.
+</ParamField>
+
+<ParamField path="--private-key" type="string">
+  Private key to use for execution. Defaults to test key for local execution.
+  
+  <Warning>
+    Default test key: `APrivateKey1zkp8CZNn3yeCseEtxuVPbDCwSyhGW6yZKUYKfgXmcpoGPWH` is for development only.
+  </Warning>
+</ParamField>
+
+### Build Options
+
+<ParamField path="--offline" type="boolean" default={false}>
+  Enable offline mode. Prevents network requests.
+</ParamField>
+
+<ParamField path="--no-cache" type="boolean" default={false}>
+  Don't use the dependency cache.
+</ParamField>
+
+<ParamField path="--no-local" type="boolean" default={false}>
+  Use network versions of dependencies instead of local source.
+</ParamField>
+
+## Examples
+
+### Execute Default Function
+
+```bash
+leo run
+```
+
+Executes the `main` function with no inputs.
+
+### Execute with Inputs
+
+```bash
+leo run main 1u32 2u32
+```
+
+Output:
+```
+➕Adding programs to the VM in the following order:
+  • hello_world.aleo (local)
+
+➡️  Output
+
+ • 3u32
+```
+
+### Execute Specific Function
+
+```bash
+leo run add 5u32 10u32
+```
+
+### Execute with Qualified Name
+
+```bash
+leo run hello_world.aleo/main 1u32 2u32
+```
+
+### Execute with Record Input
+
+Plaintext record:
+
+```bash
+leo run transfer '{ owner: aleo1..., amount: 100u64 }'
+```
+
+Ciphertext record (automatically decrypted):
+
+```bash
+leo run transfer record1zy9q3y...
+```
+
+<Note>
+  Record ciphertexts starting with `record1` are automatically decrypted using your private key's view key.
+</Note>
+
+### Execute Remote Program
+
+```bash
+leo run credits.aleo/transfer_public aleo1... 100u64
+```
+
+Leo will:
+1. Download the program from the network
+2. Download all dependencies
+3. Add programs to the VM
+4. Execute the function
+
+Output:
+```
+⬇️ Downloading credits.aleo and its dependencies from https://api.explorer.provable.com/v1...
+
+➕Adding programs to the VM in the following order:
+  • credits.aleo (network)
+
+➡️  Outputs
+
+ • record1...
+ • record1...
+```
+
+### Execute with Custom Private Key
+
+```bash
+leo run main 1u32 2u32 --private-key APrivateKey1zkp...
+```
+
+### Execute on Different Network
+
+```bash
+leo run main 1u32 2u32 --network testnet --endpoint https://api.explorer.provable.com/v1
+```
+
+## Execution Flow
+
+1. **Build Phase** (if in Leo project):
+   - Compiles the program and dependencies
+   - Generates bytecode
+
+2. **VM Initialization**:
+   - Creates an in-memory VM
+   - No persistent state
+
+3. **Program Loading**:
+   - Loads local programs from `build/`
+   - Downloads remote programs from network
+   - Adds programs in dependency order
+
+4. **Authorization**:
+   - Generates authorization for the function call
+   - Uses provided private key
+
+5. **Evaluation**:
+   - Executes the function in the VM
+   - Returns outputs
+
+## Output Format
+
+Single output:
+```
+➡️  Output
+
+ • 3u32
+```
+
+Multiple outputs:
+```
+➡️  Outputs
+
+ • 3u32
+ • true
+ • 5field
+```
+
+## Local vs Remote Programs
+
+### Local Program
+- Source code in current directory
+- Built automatically before execution
+- Uses `build/main.aleo`
+
+### Remote Program
+- Downloaded from network endpoint
+- Cached for subsequent runs
+- Uses network version of dependencies
+
+<Info>
+  Use `leo run` for rapid testing. For on-chain execution with proofs, use [`leo execute`](/cli/execute).
+</Info>
+
+## Differences from Execute
+
+| Feature | `leo run` | `leo execute` |
+|---------|-----------|---------------|
+| **Proof Generation** | No | Yes |
+| **Network Broadcast** | No | Optional |
+| **Fee Required** | No | Yes (if broadcasting) |
+| **Speed** | Fast | Slower |
+| **Use Case** | Development/Testing | Production |
+
+## Input Format Reference
+
+### Primitive Types
+
+```bash
+leo run main 42u32 true 5field
+```
+
+### Addresses
+
+```bash
+leo run transfer aleo1abc... 100u64
+```
+
+### Structs
+
+```bash
+leo run process '{ x: 1u32, y: 2u32 }'
+```
+
+### Records
+
+Plaintext:
+```bash
+leo run consume '{ owner: aleo1abc..., amount: 100u64 }'
+```
+
+Ciphertext:
+```bash
+leo run consume record1zy9q3y...
+```
+
+## Troubleshooting
+
+### Function Not Found
+
+```
+Function `foo` does not exist in program `hello_world.aleo`.
+```
+
+Ensure the function exists and is a `transition` (entry point).
+
+### Invalid Input Format
+
+```
+Failed to parse input: invalid digit found in string
+```
+
+Check your input format matches the expected type.
+
+### Program Not Found
+
+```
+Running `leo run main ...` without an explicit program name requires that your current working directory is a valid Leo project.
+```
+
+Either:
+- Run from a Leo project directory, or
+- Use the qualified name: `leo run program.aleo/function`
+
+## Next Steps
+
+- [Execute on-chain](/cli/execute)
+- [Run tests](/cli/test)
+- [Deploy programs](/cli/deploy)

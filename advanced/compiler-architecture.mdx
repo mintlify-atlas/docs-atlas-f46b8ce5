@@ -1,0 +1,373 @@
+---
+title: Compiler Architecture
+description: Deep dive into Leo's compiler design, crate structure, and compilation pipeline
+---
+
+The Leo compiler is a multi-stage compiler that transforms Leo source code into Aleo bytecode executable on the Aleo blockchain. This page provides an in-depth look at the compiler's architecture, crate organization, and overall design.
+
+## Compilation Pipeline
+
+Leo's compilation process follows a well-defined pipeline:
+
+```
+Source (.leo) → Lexer (logos) → Rowan Parse Tree → AST → Passes → Aleo Bytecode
+```
+
+### Pipeline Stages
+
+1. **Lexical Analysis**: The `leo-parser-rowan` crate uses the `logos` library to tokenize source code
+2. **Parsing**: A Rowan-based parser constructs an untyped syntax tree from tokens
+3. **AST Construction**: The `leo-parser` crate converts the Rowan parse tree into a typed Abstract Syntax Tree
+4. **Compiler Passes**: The `leo-passes` crate applies approximately 25 sequential transformations
+5. **Code Generation**: The final pass generates Aleo bytecode instructions
+
+<Info>
+The Leo compiler uses a **red-green tree** approach with Rowan, enabling incremental parsing and better error recovery than traditional parser generators.
+</Info>
+
+## Crate Architecture
+
+The Leo compiler is organized into a set of interdependent crates, each with a specific responsibility:
+
+### Foundation Crates
+
+#### `leo-span`
+Provides source location tracking for error reporting.
+
+```rust
+// Every AST node contains a Span
+pub struct Span {
+    pub start: Position,
+    pub end: Position,
+    pub source_id: SourceId,
+}
+```
+
+**Dependencies**: `fxhash`, `indexmap`, `serde`
+
+**Key Features**:
+- Fast hash-based span lookups
+- Deterministic ordering with IndexMap
+- Serializable for AST snapshots
+
+#### `leo-errors`
+Centralized error handling for all compiler stages.
+
+**Error Code Format**: `E{PREFIX}037{CODE}`
+- `EPAR037XXXX`: Parser errors (0-999)
+- `EAST037XXXX`: AST errors (2000-2999)
+- `ECMP037XXXX`: Compiler errors (6000-6999)
+
+```rust
+// Example error emission
+self.handler.emit_err(
+    CompilerError::program_name_should_match_file_name(
+        program_name,
+        expected_name,
+        span
+    )
+);
+```
+
+<Warning>
+**Security**: Errors must never leak internal implementation details. All error messages are carefully crafted to be informative without exposing compiler internals.
+</Warning>
+
+### AST and Parsing
+
+#### `leo-ast`
+Defines all Abstract Syntax Tree node types.
+
+**Core Requirements**:
+- Every node implements the `Node` trait (using `simple_node_impl!` macro)
+- Every node contains `Span` and `NodeID` for error reporting and traversal
+- Uses `IndexMap` for deterministic ordering (never `HashMap`)
+- Large enum variants must be boxed to control memory layout
+
+```rust
+// AST node pattern
+pub struct FunctionDefinition {
+    pub span: Span,
+    pub id: NodeID,
+    pub identifier: Identifier,
+    pub input: Vec<Input>,
+    pub output: Type,
+    pub block: Block,
+}
+
+simple_node_impl!(FunctionDefinition);
+```
+
+#### `leo-parser-rowan`
+Lexer and untyped parser built on the Rowan library.
+
+**Architecture**:
+- Grammar defined in `grammar.rs`
+- Tokenization via `logos` crate
+- Produces a lossless syntax tree (includes whitespace and comments)
+- Error recovery built into the parser
+
+#### `leo-parser`
+Converts the Rowan parse tree into typed AST nodes.
+
+**Responsibilities**:
+- Type-safe AST construction
+- Initial semantic validation
+- Span preservation from source to AST
+
+**Testing**:
+```bash
+# Parser tests use expectation files
+cargo test -p leo-parser
+
+# Update expectations after intentional changes
+UPDATE_EXPECT=1 cargo test -p leo-parser
+```
+
+### Compiler Passes
+
+#### `leo-passes`
+Implements all compiler transformations and optimizations.
+
+**Pass Trait**:
+```rust
+pub trait Pass {
+    type Input;
+    type Output;
+    const NAME: &str;
+    
+    fn do_pass(input: Self::Input, state: &mut CompilerState) 
+        -> Result<Self::Output>;
+}
+```
+
+All passes are executed sequentially through the `CompilerState` in `leo-compiler/src/compiler.rs:186-247`:
+
+```rust
+pub fn intermediate_passes(&mut self) -> Result<(leo_abi::Program, IndexMap<String, leo_abi::Program>)> {
+    self.do_pass::<NameValidation>(())?;
+    self.do_pass::<GlobalVarsCollection>(())?;
+    self.do_pass::<PathResolution>(())?;
+    self.do_pass::<GlobalItemsCollection>(())?;
+    self.do_pass::<CheckInterfaces>(())?;
+    self.do_pass::<TypeChecking>(type_checking_config)?;
+    self.do_pass::<Disambiguate>(())?;
+    self.do_pass::<ProcessingAsync>(type_checking_config)?;
+    self.do_pass::<StaticAnalyzing>(())?;
+    self.do_pass::<ConstPropUnrollAndMorphing>(type_checking_config)?;
+    // ... additional passes
+    let abis = self.generate_abi();
+    // ... more passes
+}
+```
+
+<Note>
+Pass ordering is critical. Each pass depends on invariants established by previous passes. For example, SSA form must be established before flattening.
+</Note>
+
+#### `leo-compiler`
+Orchestrates parsing and all compiler passes.
+
+**Compiler Structure** (`leo-compiler/src/compiler.rs:58-73`):
+```rust
+pub struct Compiler {
+    output_directory: PathBuf,
+    pub program_name: Option<String>,
+    compiler_options: CompilerOptions,
+    state: CompilerState,
+    import_stubs: IndexMap<Symbol, Stub>,
+    pub statements_before_dce: u32,
+    pub statements_after_dce: u32,
+}
+```
+
+**Compiler State** (`leo-passes/src/pass.rs:26-52`):
+```rust
+pub struct CompilerState {
+    pub ast: Ast,
+    pub handler: Handler,
+    pub type_table: TypeTable,
+    pub node_builder: Rc<NodeBuilder>,
+    pub assigner: Assigner,
+    pub symbol_table: SymbolTable,
+    pub composite_graph: CompositeGraph,
+    pub call_graph: CallGraph,
+    pub call_count: IndexMap<Location, usize>,
+    pub warnings: HashSet<LeoWarning>,
+    pub is_test: bool,
+    pub network: NetworkName,
+}
+```
+
+### Supporting Crates
+
+#### `leo-abi` / `leo-abi-types`
+Generate Application Binary Interface definitions.
+
+**Generated After Monomorphization**: ABIs are captured immediately after the monomorphization pass to ensure all const generic types are resolved (`leo-compiler/src/compiler.rs:213-215`).
+
+#### `leo-fmt`
+Leo source code formatter (uses `leo-parser-rowan`).
+
+#### `leo-disassembler`
+Converts Aleo bytecode back to human-readable format.
+
+#### `leo-package`
+Parses and manages Leo project structure (`program.json`, etc.).
+
+#### `leo-test-framework`
+Test harness for `.leo` test files.
+
+**Test Structure**:
+- Tests in `tests/tests/{category}/`
+- Expectations in `tests/expectations/{category}/`
+- Use `UPDATE_EXPECT=1` to regenerate expectations
+
+## Data Flow Through Compiler
+
+### 1. Source to AST
+
+```rust
+// From leo-compiler/src/compiler.rs:76
+pub fn parse(&mut self, source: &str, filename: FileName, 
+             modules: &[(&str, FileName)]) -> Result<()> {
+    // Register source in source map
+    let source_file = with_session_globals(|s| 
+        s.source_map.new_source(source, filename.clone())
+    );
+    
+    // Parse to AST
+    self.state.ast = leo_parser::parse_ast(
+        self.state.handler.clone(),
+        &self.state.node_builder,
+        &source_file,
+        &modules,
+        self.state.network,
+    )?;
+    
+    // Validate program name
+    let program_scope = self.state.ast.ast.program_scopes.values().next().unwrap();
+    // ...
+}
+```
+
+### 2. Pass Execution
+
+Each pass is wrapped in `do_pass` which handles AST snapshots:
+
+```rust
+// From leo-compiler/src/compiler.rs:169
+fn do_pass<P: Pass>(&mut self, input: P::Input) -> Result<P::Output> {
+    let output = P::do_pass(input, &mut self.state)?;
+    
+    let write = match &self.compiler_options.ast_snapshots {
+        AstSnapshots::All => true,
+        AstSnapshots::Some(passes) => passes.contains(P::NAME),
+    };
+    
+    if write {
+        self.write_ast_to_json(&format!("{}.json", P::NAME))?;
+        self.write_ast(&format!("{}.ast", P::NAME))?;
+    }
+    
+    Ok(output)
+}
+```
+
+### 3. Code Generation
+
+The final pass generates Aleo bytecode (`leo-compiler/src/compiler.rs:300`):
+
+```rust
+let bytecodes = CodeGenerating::do_pass((), &mut self.state)?;
+
+let primary = CompiledProgram {
+    name: self.program_name.clone().unwrap(),
+    bytecode: bytecodes.primary_bytecode,
+    abi: primary_abi,
+};
+```
+
+## Memory and Performance
+
+### Design Principles
+
+1. **Pre-allocation**: Use `with_capacity` when final size is known
+2. **Avoid Cloning**: Prefer references and `into_iter()` over `.clone()` and `iter().cloned()`
+3. **Iterator Chains**: Avoid intermediate vectors and unnecessary `.collect()`
+4. **Deterministic Ordering**: Always use `IndexMap` or `IndexSet`, never `HashMap` or `HashSet`
+
+### Hot Path Optimizations
+
+The compiler applies several optimizations in performance-critical paths:
+
+- **Symbol Interning**: Identifiers are interned to reduce string allocation
+- **Arena Allocation**: Node IDs reference arena-allocated nodes
+- **Copy-on-Write**: AST nodes are modified in-place when possible
+
+<Warning>
+Every `unwrap()` in the codebase must be justified with a comment explaining why it's safe. In production paths, always use proper error handling.
+</Warning>
+
+## Security Guarantees
+
+### Unsafe Code Prohibition
+
+The following crates forbid unsafe code:
+- `leo-span`
+- `leo-passes`
+- `leo-compiler`
+- `leo-errors`
+- `leo-package`
+
+This is enforced with `#![forbid(unsafe_code)]` at the crate root.
+
+### Input Validation
+
+- All external input is validated at trust boundaries
+- Parser rejects malformed syntax with descriptive errors
+- Type checker enforces type safety
+- Bounds checking on all array accesses
+
+### Fail-Closed Design
+
+The compiler follows a fail-closed approach: when uncertain, reject the program rather than making assumptions.
+
+## Debugging and Testing
+
+### AST Snapshots
+
+Enable AST snapshots to see transformations:
+
+```rust
+let compiler_options = CompilerOptions {
+    ast_snapshots: AstSnapshots::All,
+    ast_spans_enabled: true,
+    initial_ast: true,
+};
+```
+
+This generates:
+- `program_name.initial.json` - AST after parsing
+- `program_name.TypeChecking.json` - AST after type checking
+- `program_name.Flattening.json` - AST after flattening
+- etc.
+
+### Running Tests
+
+```bash
+# Run all compiler tests
+cargo test -p leo-compiler
+
+# Run specific test category
+TEST_FILTER=loop cargo test
+
+# Update expectations
+UPDATE_EXPECT=1 cargo test -p leo-compiler
+```
+
+## Related Resources
+
+- [Compiler Passes](/advanced/compiler-passes) - Details on each compilation pass
+- [Zero-Knowledge Concepts](/advanced/zero-knowledge-concepts) - How Leo compiles to ZK proofs
+- [Optimization](/advanced/optimization) - Performance optimization techniques

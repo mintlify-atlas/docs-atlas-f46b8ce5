@@ -1,0 +1,428 @@
+---
+title: 'Aleo Instructions'
+description: 'How Leo compiles to Aleo instructions and bytecode'
+---
+
+## Overview
+
+Leo is a high-level language that compiles to Aleo instructions, the low-level bytecode executed by the Aleo Virtual Machine (AVM). Understanding this compilation process helps you write efficient Leo programs and debug issues.
+
+## Compilation Pipeline
+
+The Leo compiler transforms your code through several stages:
+
+```
+Leo Source (.leo)
+    ↓
+Lexer (Tokenization)
+    ↓
+Parser (Syntax Tree)
+    ↓
+AST (Abstract Syntax Tree)
+    ↓
+Compiler Passes:
+  - Type Checking
+  - Loop Unrolling
+  - Static Analysis
+  - Flattening
+  - Code Generation
+    ↓
+Aleo Instructions (.aleo)
+    ↓
+Aleo Bytecode
+```
+
+## Leo to Aleo Mapping
+
+### Program Declaration
+
+**Leo:**
+```leo
+program token.aleo {
+    // ...
+}
+```
+
+**Aleo:**
+```aleo
+program token.aleo;
+```
+
+The program name must match the file name and end with `.aleo`.
+
+### Function Definitions
+
+**Leo:**
+```leo
+fn add(a: u32, b: u32) -> u32 {
+    return a + b;
+}
+```
+
+**Aleo Instructions:**
+```aleo
+function add:
+    input r0 as u32.private;
+    input r1 as u32.private;
+    add r0 r1 into r2;
+    output r2 as u32.private;
+```
+
+### Records
+
+**Leo:**
+```leo
+record Token {
+    owner: address,
+    amount: u64,
+}
+```
+
+**Aleo:**
+```aleo
+record token:
+    owner as address.private;
+    amount as u64.private;
+```
+
+Records are always private by default in Aleo.
+
+### Mappings
+
+**Leo:**
+```leo
+mapping account: address => u64;
+```
+
+**Aleo:**
+```aleo
+mapping account:
+    key as address.public;
+    value as u64.public;
+```
+
+Mappings are always public on-chain storage.
+
+### Finalizers
+
+**Leo:**
+```leo
+fn transfer_public(public receiver: address, public amount: u64) -> Final {
+    return final { finalize_transfer(self.caller, receiver, amount); };
+}
+```
+
+**Aleo:**
+```aleo
+function transfer_public:
+    input r0 as address.public;
+    input r1 as u64.public;
+    finalize self.caller r0 r1;
+
+finalize transfer_public:
+    input r0 as address.public;
+    input r1 as address.public;
+    input r2 as u64.public;
+    // Mapping operations here
+```
+
+## Aleo Instruction Set
+
+The Aleo VM provides a rich instruction set. Here are the most commonly generated instructions:
+
+### Arithmetic Instructions
+
+| Leo Operator | Aleo Instruction | Description |
+|--------------|------------------|-------------|
+| `a + b` | `add r0 r1 into r2` | Addition |
+| `a - b` | `sub r0 r1 into r2` | Subtraction |
+| `a * b` | `mul r0 r1 into r2` | Multiplication |
+| `a / b` | `div r0 r1 into r2` | Division |
+| `a % b` | `mod r0 r1 into r2` | Modulo |
+| `a ** b` | `pow r0 r1 into r2` | Exponentiation |
+
+### Comparison Instructions
+
+| Leo Operator | Aleo Instruction | Description |
+|--------------|------------------|-------------|
+| `a == b` | `is.eq r0 r1 into r2` | Equality |
+| `a != b` | `is.neq r0 r1 into r2` | Inequality |
+| `a < b` | `lt r0 r1 into r2` | Less than |
+| `a <= b` | `lte r0 r1 into r2` | Less than or equal |
+| `a > b` | `gt r0 r1 into r2` | Greater than |
+| `a >= b` | `gte r0 r1 into r2` | Greater than or equal |
+
+### Logical Instructions
+
+| Leo Operator | Aleo Instruction | Description |
+|--------------|------------------|-------------|
+| `a && b` | `and r0 r1 into r2` | Logical AND |
+| `a \|\| b` | `or r0 r1 into r2` | Logical OR |
+| `!a` | `not r0 into r1` | Logical NOT |
+
+### Bitwise Instructions
+
+| Leo Operator | Aleo Instruction | Description |
+|--------------|------------------|-------------|
+| `a & b` | `and r0 r1 into r2` | Bitwise AND |
+| `a \| b` | `or r0 r1 into r2` | Bitwise OR |
+| `a ^ b` | `xor r0 r1 into r2` | Bitwise XOR |
+| `a << b` | `shl r0 r1 into r2` | Shift left |
+| `a >> b` | `shr r0 r1 into r2` | Shift right |
+
+### Type Casting
+
+```leo
+let x: u32 = 42u32;
+let y: u64 = x as u64;
+```
+
+Compiles to:
+```aleo
+cast r0 into r1 as u64;
+```
+
+### Assertions
+
+```leo
+assert(condition);
+```
+
+Compiles to:
+```aleo
+assert.eq r0 true;
+```
+
+## Optimization Passes
+
+The Leo compiler performs several optimization passes:
+
+### 1. Loop Unrolling
+
+Leo unrolls all loops at compile time since circuits cannot have dynamic control flow.
+
+**Leo:**
+```leo
+for i in 0u32..5u32 {
+    sum += i;
+}
+```
+
+**Unrolled:**
+```leo
+sum += 0u32;
+sum += 1u32;
+sum += 2u32;
+sum += 3u32;
+sum += 4u32;
+```
+
+### 2. Constant Folding
+
+Constant expressions are evaluated at compile time.
+
+**Leo:**
+```leo
+let x: u32 = 10u32 + 20u32 * 3u32;
+```
+
+**Optimized:**
+```leo
+let x: u32 = 70u32;
+```
+
+### 3. Dead Code Elimination
+
+Unreachable code is removed.
+
+**Leo:**
+```leo
+if true {
+    return a;
+} else {
+    return b; // Dead code
+}
+```
+
+**Optimized:**
+```leo
+return a;
+```
+
+### 4. Static Single Assignment (SSA)
+
+Variables are converted to SSA form for easier analysis.
+
+**Leo:**
+```leo
+let mut x: u32 = 10u32;
+x = x + 1u32;
+x = x * 2u32;
+```
+
+**SSA Form:**
+```leo
+let x_0: u32 = 10u32;
+let x_1: u32 = x_0 + 1u32;
+let x_2: u32 = x_1 * 2u32;
+```
+
+### 5. Flattening
+
+Nested expressions are flattened into a sequence of simple operations.
+
+**Leo:**
+```leo
+let result: u32 = (a + b) * (c - d);
+```
+
+**Flattened:**
+```leo
+let tmp1: u32 = a + b;
+let tmp2: u32 = c - d;
+let result: u32 = tmp1 * tmp2;
+```
+
+## Register Allocation
+
+Aleo uses a register-based architecture. The Leo compiler allocates registers efficiently:
+
+- **r0, r1, r2, ...**: Function inputs
+- **rN**: Temporary values
+- **Output**: Final result register
+
+Example:
+```aleo
+function example:
+    input r0 as u32.private;     // First parameter
+    input r1 as u32.private;     // Second parameter
+    add r0 r1 into r2;           // Temporary result
+    mul r2 r0 into r3;           // Another temporary
+    output r3 as u32.private;    // Final output
+```
+
+## Visibility Modifiers
+
+Leo's `public` keyword affects Aleo instruction visibility:
+
+**Leo:**
+```leo
+fn transfer(public sender: address, amount: u64) -> u64 {
+    return amount;
+}
+```
+
+**Aleo:**
+```aleo
+function transfer:
+    input r0 as address.public;   // Public input
+    input r1 as u64.private;      // Private input
+    output r1 as u64.private;     // Private output
+```
+
+## Viewing Generated Code
+
+To see the Aleo instructions generated from your Leo program:
+
+```bash
+leo build
+```
+
+The generated `.aleo` file will be in the `build/` directory:
+
+```bash
+cat build/main.aleo
+```
+
+## Debugging Tips
+
+### Use leo fmt
+
+Format your code consistently:
+
+```bash
+leo fmt
+```
+
+### Check Generated Instructions
+
+Review the generated `.aleo` file to understand how your code compiles:
+
+```bash
+leo build && cat build/main.aleo
+```
+
+### Use Assertions Liberally
+
+Assertions help catch errors early:
+
+```leo
+assert(amount > 0u64);
+assert(sender != receiver);
+```
+
+### Profile Circuit Size
+
+Large circuits take longer to prove. Keep functions small and focused.
+
+## Aleo VM Execution
+
+When your Leo program runs:
+
+1. **Synthesis**: Aleo instructions are synthesized into a constraint system
+2. **Proving**: A zero-knowledge proof is generated
+3. **Verification**: The proof is verified on-chain
+4. **Finalization**: If present, finalizer functions execute on-chain
+
+## Performance Considerations
+
+### Circuit Complexity
+
+Each instruction adds constraints to the circuit. Minimize:
+
+- Nested loops (they unroll completely)
+- Complex conditionals
+- Large data structures
+
+### Prefer Simpler Operations
+
+- Addition/subtraction: ~1 constraint
+- Multiplication: ~1 constraint
+- Division/modulo: More expensive
+- Comparisons: Multiple constraints
+
+### Batch Operations
+
+Group related operations in a single function to reduce proof overhead.
+
+## Disassembling Aleo Code
+
+Leo includes a disassembler to convert Aleo bytecode back to readable instructions:
+
+```bash
+leo disassemble build/main.aleo
+```
+
+This is useful for understanding optimizations and debugging issues.
+
+## Related Resources
+
+<CardGroup cols={2}>
+  <Card title="Aleo Documentation" icon="book" href="https://developer.aleo.org">
+    Learn more about Aleo instructions
+  </Card>
+  <Card title="Grammar Reference" icon="file-code" href="/reference/grammar">
+    Leo syntax specification
+  </Card>
+</CardGroup>
+
+## Code Generation Implementation
+
+The code generation pass is located in `crates/passes/src/code_generation/`. Key files:
+
+- `program.rs`: Generates program-level instructions
+- `expression.rs`: Handles expression compilation
+- `statement.rs`: Compiles statements
+- `type_.rs`: Type conversions
+
+For implementation details, see the Leo source code at `/home/daytona/workspace/source/crates/passes/src/code_generation/`.

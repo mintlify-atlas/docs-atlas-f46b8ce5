@@ -1,0 +1,256 @@
+---
+title: leo build
+description: Compile Leo programs into Aleo bytecode with dependencies
+---
+
+The `leo build` command compiles Leo programs into Aleo bytecode, processes dependencies, and generates the Application Binary Interface (ABI).
+
+## Syntax
+
+```bash
+leo build [OPTIONS]
+```
+
+## Options
+
+### Network Options
+
+<ParamField path="--network" type="string">
+  Network type: `mainnet`, `testnet`, or `canary`. Defaults to `testnet`.
+</ParamField>
+
+<ParamField path="--endpoint" type="string">
+  Endpoint URL for network dependencies. Defaults to `https://api.explorer.provable.com/v1`.
+</ParamField>
+
+### Build Options
+
+<ParamField path="--offline" type="boolean" default={false}>
+  Enables offline mode. Prevents network requests for dependencies.
+</ParamField>
+
+<ParamField path="--no-cache" type="boolean" default={false}>
+  Don't use the dependency cache. Forces re-download of dependencies.
+</ParamField>
+
+<ParamField path="--no-local" type="boolean" default={false}>
+  Don't use local source code for dependencies. Use network versions instead.
+</ParamField>
+
+<ParamField path="--build-tests" type="boolean" default={false}>
+  Build tests along with the main program and dependencies.
+</ParamField>
+
+### Compiler Options
+
+<ParamField path="--enable-dce" type="boolean" default={true}>
+  Enable dead code elimination in the compiler.
+</ParamField>
+
+<ParamField path="--conditional-block-max-depth" type="number" default={10}>
+  Maximum depth for type checking nested conditionals.
+</ParamField>
+
+<ParamField path="--disable-conditional-branch-type-checking" type="boolean" default={false}>
+  Disable type checking of nested conditional branches in finalize scope.
+</ParamField>
+
+### Debug Options
+
+<ParamField path="--enable-ast-spans" type="boolean" default={false}>
+  Enable spans in AST snapshots for debugging.
+</ParamField>
+
+<ParamField path="--enable-initial-ast-snapshot" type="boolean" default={false}>
+  Write an AST snapshot immediately after parsing.
+</ParamField>
+
+<ParamField path="--enable-all-ast-snapshots" type="boolean" default={false}>
+  Write AST snapshots for all compiler phases.
+</ParamField>
+
+<ParamField path="--ast-snapshots" type="string">
+  Comma-separated list of passes whose AST snapshots to capture.
+</ParamField>
+
+## Examples
+
+### Basic Build
+
+```bash
+leo build
+```
+
+Output:
+```
+🔨 Compiling 'hello_world.leo'
+    16 statements before dead code elimination.
+    12 statements after dead code elimination.
+    The program checksum is: '[...]'.
+    Program size: 1.23 KB / 10.00 KB
+✅ Compiled 'hello_world.aleo' into Aleo instructions.
+✅ Generated ABI at 'build/main.abi.json'.
+```
+
+### Build with Tests
+
+```bash
+leo build --build-tests
+```
+
+### Build Without Cache
+
+```bash
+leo build --no-cache
+```
+
+<Note>
+  Use `--no-cache` when you want to force re-download of network dependencies.
+</Note>
+
+### Build with AST Snapshots
+
+```bash
+leo build --enable-all-ast-snapshots
+```
+
+Generates AST snapshots in `outputs/` for each compiler pass.
+
+### Build for Specific Network
+
+```bash
+leo build --network mainnet --endpoint https://api.explorer.provable.com/v1
+```
+
+## Build Output
+
+The build process creates:
+
+```
+build/
+├── main.aleo           # Compiled bytecode
+├── main.abi.json       # Application Binary Interface
+└── program.json        # Build manifest
+
+imports/
+└── credits.aleo        # Compiled dependencies
+
+outputs/
+└── *.ast               # AST snapshots (if enabled)
+```
+
+### main.aleo
+
+Compiled Aleo bytecode:
+
+```aleo
+program hello_world.aleo;
+
+function main:
+    input r0 as u32.public;
+    input r1 as u32.private;
+    add r0 r1 into r2;
+    output r2 as u32.private;
+```
+
+### main.abi.json
+
+ABI specification for programmatic interaction:
+
+```json
+{
+  "program": "hello_world.aleo",
+  "version": "0.1.0",
+  "functions": [
+    {
+      "name": "main",
+      "inputs": [
+        {"type": "u32", "visibility": "public"},
+        {"type": "u32", "visibility": "private"}
+      ],
+      "outputs": [
+        {"type": "u32", "visibility": "private"}
+      ]
+    }
+  ]
+}
+```
+
+## Program Size Limits
+
+Leo enforces a maximum program size:
+
+- **Maximum size**: 10 MB (10,485,760 bytes)
+- Programs exceeding this limit will fail to build
+
+<Warning>
+  If your program exceeds 8 MB (80% of the limit), you'll receive a warning to optimize your code.
+</Warning>
+
+## Compiler Passes
+
+The Leo compiler runs through multiple passes:
+
+1. **Parsing** - Convert source to AST
+2. **Symbol Resolution** - Resolve identifiers
+3. **Type Checking** - Validate types
+4. **Loop Unrolling** - Unroll loops to fixed iterations
+5. **Monomorphization** - Convert generic types to concrete types
+6. **Flattening** - Flatten complex expressions
+7. **Dead Code Elimination** - Remove unused code
+8. **Code Generation** - Generate Aleo instructions
+
+## Checksum Verification
+
+After building, Leo displays the program checksum:
+
+```bash
+The program checksum is: '[1field, 2field, ...]'.
+```
+
+Use this checksum to verify program integrity and ensure consistent builds.
+
+## Dependencies
+
+Leo automatically builds dependencies listed in `program.json`:
+
+```json
+{
+  "dependencies": [
+    {
+      "name": "credits.aleo",
+      "location": "network"
+    }
+  ]
+}
+```
+
+Dependencies are built in dependency order (child before parent) and cached for performance.
+
+## Troubleshooting
+
+### Compiler Version Mismatch
+
+If you see a warning about compiler version mismatch:
+
+```bash
+⚠️ The Leo compiler version in the manifest (1.9.0) does not match the current version (2.0.0).
+```
+
+Update `program.json` to match your Leo version.
+
+### Network Dependencies Failed
+
+If network dependencies fail to download:
+
+```bash
+leo build --offline
+```
+
+Or check your `--endpoint` configuration.
+
+## Next Steps
+
+- [Run your program](/cli/run)
+- [Test your program](/cli/test)
+- [Deploy to network](/cli/deploy)

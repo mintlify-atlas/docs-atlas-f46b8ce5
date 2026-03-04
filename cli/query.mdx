@@ -1,0 +1,539 @@
+---
+title: leo query
+description: Query live data from the Aleo network including blocks, transactions, and program state
+---
+
+The `leo query` command retrieves data from the Aleo network, including blocks, transactions, programs, and network state.
+
+## Syntax
+
+```bash
+leo query <SUBCOMMAND> [OPTIONS]
+```
+
+## Subcommands
+
+### block
+
+Query block information.
+
+```bash
+leo query block <HEIGHT|HASH|"latest"> [OPTIONS]
+```
+
+### transaction
+
+Query transaction information.
+
+```bash
+leo query transaction <TRANSACTION_ID> [OPTIONS]
+```
+
+### program
+
+Query program source code and mapping values.
+
+```bash
+leo query program <PROGRAM_ID> [OPTIONS]
+```
+
+### stateroot
+
+Query the latest state root.
+
+```bash
+leo query stateroot [OPTIONS]
+```
+
+### committee
+
+Query the current committee.
+
+```bash
+leo query committee [OPTIONS]
+```
+
+### mempool
+
+Query transactions and transmissions from the memory pool.
+
+```bash
+leo query mempool [OPTIONS]
+```
+
+### peers
+
+Query peer information.
+
+```bash
+leo query peers [OPTIONS]
+```
+
+## Global Options
+
+<ParamField path="--network" type="string" required>
+  Network type: `mainnet`, `testnet`, or `canary`.
+</ParamField>
+
+<ParamField path="--endpoint" type="string" required>
+  Network endpoint URL:
+  - Live networks: `https://api.explorer.provable.com/v1`
+  - Custom node: `http://localhost:3030`
+</ParamField>
+
+## Examples
+
+### Query Block
+
+#### Latest Block
+
+```bash
+leo query block latest \
+  --network testnet \
+  --endpoint https://api.explorer.provable.com/v1
+```
+
+Output:
+```json
+{
+  "block_hash": "ab1...",
+  "previous_hash": "ab1...",
+  "header": {
+    "previous_state_root": "sr1...",
+    "transactions_root": "tp1...",
+    "finalize_root": "fr1...",
+    "ratifications_root": "rr1...",
+    "solutions_root": "sr1...",
+    "subdag_root": "sd1...",
+    "metadata": {
+      "network": 1,
+      "round": 12345,
+      "height": 67890,
+      "cumulative_weight": 1234567890,
+      "cumulative_proof_target": 9876543210,
+      "coinbase_target": 1234567890123,
+      "proof_target": 9876543,
+      "last_coinbase_target": 1234567890123,
+      "last_coinbase_timestamp": 1234567890,
+      "timestamp": 1234567900
+    }
+  },
+  "transactions": [...],
+  "ratifications": [...]
+}
+```
+
+#### Block by Height
+
+```bash
+leo query block 1000 \
+  --network testnet \
+  --endpoint https://api.explorer.provable.com/v1
+```
+
+#### Block by Hash
+
+```bash
+leo query block ab1abc... \
+  --network testnet \
+  --endpoint https://api.explorer.provable.com/v1
+```
+
+### Query Transaction
+
+```bash
+leo query transaction at1abc... \
+  --network testnet \
+  --endpoint https://api.explorer.provable.com/v1
+```
+
+Output:
+```json
+{
+  "type": "execute",
+  "id": "at1abc...",
+  "execution": {
+    "transitions": [
+      {
+        "id": "...",
+        "program": "hello_world.aleo",
+        "function": "main",
+        "inputs": [...],
+        "outputs": [...]
+      }
+    ],
+    "global_state_root": "sr1..."
+  },
+  "fee": {
+    "transition": {...},
+    "global_state_root": "sr1..."
+  }
+}
+```
+
+### Query Program
+
+#### Get Program Source
+
+```bash
+leo query program hello_world.aleo \
+  --network testnet \
+  --endpoint https://api.explorer.provable.com/v1
+```
+
+Output:
+```
+✅ Successfully retrieved data from 'https://api.explorer.provable.com/v1/testnet/program/hello_world.aleo'.
+
+program hello_world.aleo;
+
+function main:
+    input r0 as u32.public;
+    input r1 as u32.private;
+    add r0 r1 into r2;
+    output r2 as u32.private;
+```
+
+#### Get Program Mappings
+
+```bash
+leo query program credits.aleo --mappings \
+  --network testnet \
+  --endpoint https://api.explorer.provable.com/v1
+```
+
+#### Get Mapping Value
+
+```bash
+leo query program credits.aleo \
+  --mapping account \
+  --key aleo1... \
+  --network testnet \
+  --endpoint https://api.explorer.provable.com/v1
+```
+
+Returns the balance for the specified account.
+
+### Query State Root
+
+```bash
+leo query stateroot \
+  --network testnet \
+  --endpoint https://api.explorer.provable.com/v1
+```
+
+Output:
+```
+sr1abc...
+```
+
+### Query Committee
+
+```bash
+leo query committee \
+  --network testnet \
+  --endpoint https://api.explorer.provable.com/v1
+```
+
+Output:
+```json
+{
+  "starting_round": 100,
+  "members": [
+    {
+      "address": "aleo1...",
+      "stake": 1000000000000,
+      "is_open": true
+    },
+    ...
+  ],
+  "total_stake": 5000000000000
+}
+```
+
+### Query Mempool
+
+```bash
+leo query mempool \
+  --network testnet \
+  --endpoint http://localhost:3030
+```
+
+<Warning>
+  The mempool endpoint is only available on custom nodes, not on the public API.
+</Warning>
+
+Output:
+```json
+{
+  "transactions": [
+    "at1abc...",
+    "at1def..."
+  ],
+  "transmissions": [...]
+}
+```
+
+### Query Peers
+
+```bash
+leo query peers \
+  --network testnet \
+  --endpoint http://localhost:3030
+```
+
+<Warning>
+  The peers endpoint is only available on custom nodes, not on the public API.
+</Warning>
+
+Output:
+```json
+[
+  {
+    "address": "1.2.3.4:4130",
+    "type": "validator"
+  },
+  ...
+]
+```
+
+## Query URLs
+
+The query command constructs URLs based on the subcommand:
+
+### Block Queries
+
+```
+{endpoint}/{network}/block/{height|hash|latest}
+```
+
+Examples:
+- `https://api.explorer.provable.com/v1/testnet/block/latest`
+- `https://api.explorer.provable.com/v1/testnet/block/1000`
+- `https://api.explorer.provable.com/v1/testnet/block/ab1...`
+
+### Transaction Queries
+
+```
+{endpoint}/{network}/transaction/{transaction_id}
+```
+
+Example:
+- `https://api.explorer.provable.com/v1/testnet/transaction/at1...`
+
+### Program Queries
+
+```
+{endpoint}/{network}/program/{program_id}
+{endpoint}/{network}/program/{program_id}/mappings
+{endpoint}/{network}/program/{program_id}/mapping/{mapping_name}/{key}
+```
+
+Examples:
+- `https://api.explorer.provable.com/v1/testnet/program/hello_world.aleo`
+- `https://api.explorer.provable.com/v1/testnet/program/credits.aleo/mappings`
+- `https://api.explorer.provable.com/v1/testnet/program/credits.aleo/mapping/account/aleo1.../balance`
+
+### State Root Query
+
+```
+{endpoint}/{network}/latest/stateRoot
+```
+
+Example:
+- `https://api.explorer.provable.com/v1/testnet/latest/stateRoot`
+
+### Committee Query
+
+```
+{endpoint}/{network}/committee/latest
+```
+
+Example:
+- `https://api.explorer.provable.com/v1/testnet/committee/latest`
+
+## Output Formats
+
+Query results are output as:
+
+### JSON
+Structured data (blocks, transactions, committee)
+
+### Plain Text
+Simple values (state root, height, program source)
+
+### Pretty Printed
+Formatted for readability with success messages
+
+## Common Use Cases
+
+### Check Account Balance
+
+```bash
+leo query program credits.aleo \
+  --mapping account \
+  --key aleo1your_address... \
+  --network testnet
+```
+
+### Verify Transaction Confirmed
+
+```bash
+leo query transaction at1your_tx_id... \
+  --network testnet \
+  --endpoint https://api.explorer.provable.com/v1
+```
+
+### Download Program Source
+
+```bash
+leo query program some_program.aleo \
+  --network testnet \
+  --endpoint https://api.explorer.provable.com/v1 \
+  > some_program.aleo
+```
+
+### Monitor Latest Block
+
+```bash
+watch -n 10 'leo query block latest --network testnet --endpoint https://api.explorer.provable.com/v1 | jq .header.metadata.height'
+```
+
+### Check Network Height
+
+```bash
+leo query block latest \
+  --network testnet \
+  --endpoint https://api.explorer.provable.com/v1 \
+  | jq .header.metadata.height
+```
+
+## Program Verification
+
+When querying program source, Leo automatically verifies it's valid:
+
+```bash
+leo query program hello_world.aleo --network testnet
+```
+
+Leo will:
+1. Download the program source
+2. Parse it as Aleo bytecode
+3. Verify it's valid
+4. Display the source
+
+If invalid, an error is shown:
+```
+Failed to verify program as valid Aleo bytecode.
+```
+
+## Using with Scripts
+
+### Bash Script
+
+```bash
+#!/bin/bash
+
+# Get current height
+HEIGHT=$(leo query block latest \
+  --network testnet \
+  --endpoint https://api.explorer.provable.com/v1 \
+  | jq .header.metadata.height)
+
+echo "Current height: $HEIGHT"
+
+# Wait for specific height
+TARGET_HEIGHT=1000
+while [ "$HEIGHT" -lt "$TARGET_HEIGHT" ]; do
+  sleep 10
+  HEIGHT=$(leo query block latest \
+    --network testnet \
+    --endpoint https://api.explorer.provable.com/v1 \
+    | jq .header.metadata.height)
+  echo "Height: $HEIGHT / $TARGET_HEIGHT"
+done
+
+echo "Target height reached!"
+```
+
+### Python Script
+
+```python
+import subprocess
+import json
+import time
+
+def query_latest_height():
+    result = subprocess.run([
+        'leo', 'query', 'block', 'latest',
+        '--network', 'testnet',
+        '--endpoint', 'https://api.explorer.provable.com/v1'
+    ], capture_output=True, text=True)
+    
+    block = json.loads(result.stdout)
+    return block['header']['metadata']['height']
+
+height = query_latest_height()
+print(f'Current height: {height}')
+```
+
+## Troubleshooting
+
+### Network Unreachable
+
+```
+Failed to retrieve data from network endpoint.
+```
+
+Check:
+1. Endpoint URL is correct
+2. Network is running
+3. Internet connection active
+4. Firewall allows connections
+
+### Resource Not Found
+
+```
+Resource not found: program hello_world.aleo
+```
+
+The program/transaction/block doesn't exist:
+1. Verify the identifier is correct
+2. Check the program is deployed
+3. Ensure you're querying the right network
+
+### Invalid Network
+
+```
+Invalid network: testnt
+```
+
+Use valid network names:
+- `mainnet`
+- `testnet`
+- `canary`
+
+### Mempool/Peers Not Available
+
+```
+⚠️ `leo query mempool` is only valid when using a custom endpoint.
+```
+
+These endpoints require a direct node connection:
+```bash
+leo query mempool --endpoint http://localhost:3030
+```
+
+## API Rate Limits
+
+The public API may have rate limits:
+
+- Limit: ~100 requests per minute
+- Throttling: Automatic backoff
+- Alternatives: Run your own node
+
+## Next Steps
+
+- [Execute transactions](/cli/execute)
+- [Deploy programs](/cli/deploy)
+- [Run local devnet](/cli/devnet)

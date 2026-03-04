@@ -1,0 +1,468 @@
+---
+title: leo devnet
+description: Launch and manage a local Aleo devnet with validators and clients
+---
+
+The `leo devnet` command launches and manages a local Aleo development network using snarkOS, providing a full-featured environment for testing Leo programs.
+
+## Syntax
+
+```bash
+leo devnet [OPTIONS]
+```
+
+## Options
+
+### Network Configuration
+
+<ParamField path="--num-validators" type="number" default={4}>
+  Number of validator nodes to run.
+</ParamField>
+
+<ParamField path="--num-clients" type="number" default={2}>
+  Number of client nodes to run.
+</ParamField>
+
+<ParamField path="-n, --network" type="string" default="testnet">
+  Network type: `mainnet`, `testnet`, or `canary`.
+</ParamField>
+
+### Storage Options
+
+<ParamField path="--storage" type="string" default="./">
+  Ledger and log root directory.
+</ParamField>
+
+<ParamField path="--clear-storage" type="boolean" default={false}>
+  Remove existing devnet storage before starting.
+</ParamField>
+
+<ParamField path="--clean-only" type="boolean" default={false}>
+  Only clean devnet storage (ledgers, node data, logs) without starting.
+</ParamField>
+
+### snarkOS Configuration
+
+<ParamField path="--snarkos" type="string">
+  Path to snarkOS binary. If not found, use `--install` to build it at this path.
+</ParamField>
+
+<ParamField path="--snarkos-features" type="string[]">
+  Required features for snarkOS (comma-separated). Example: `test_network`
+</ParamField>
+
+<ParamField path="--snarkos-version" type="string">
+  Required version of snarkOS. Defaults to latest version on crates.io.
+</ParamField>
+
+<ParamField path="--install" type="boolean" default={false}>
+  (Re)install snarkOS at the provided `--snarkos` path with `--snarkos-features`.
+</ParamField>
+
+### Port Configuration
+
+<ParamField path="--rest-port" type="number">
+  Base REST port. Each node uses base + node_index.
+  
+  Default for validator 0: `3030`
+</ParamField>
+
+<ParamField path="--node-port" type="number">
+  Base node port. Each node uses base + node_index.
+</ParamField>
+
+<ParamField path="--bft-port" type="number">
+  Base BFT port. Each node uses base + node_index.
+</ParamField>
+
+<ParamField path="--metrics-port" type="number">
+  Base metrics port. Each validator uses base + node_index.
+</ParamField>
+
+### Consensus Options
+
+<ParamField path="--consensus-heights" type="string">
+  Custom consensus heights (comma-separated). The `test_network` feature must be enabled.
+  
+  Can also be set via `CONSENSUS_VERSION_HEIGHTS` environment variable.
+</ParamField>
+
+### Display Options
+
+<ParamField path="--tmux" type="boolean" default={false}>
+  Run nodes in tmux (Unix only). Allows easy monitoring of individual nodes.
+</ParamField>
+
+<ParamField path="--verbosity" type="number" default={1}>
+  snarkOS verbosity level (0-4):
+  - 0: Error only
+  - 1: Warn
+  - 2: Info
+  - 3: Debug
+  - 4: Trace
+</ParamField>
+
+### Additional Options
+
+<ParamField path="-y, --yes" type="boolean" default={false}>
+  Skip confirmation prompts and proceed with devnet startup.
+</ParamField>
+
+## Examples
+
+### Start Default Devnet
+
+```bash
+leo devnet
+```
+
+Starts a devnet with:
+- 4 validators
+- 2 clients
+- Testnet configuration
+- REST endpoint at `http://localhost:3030`
+
+Output:
+```
+🚀 Starting Aleo Devnet
+──────────────────────────────────────────────
+📊 Configuration:
+  Validators:       4
+  Clients:          2
+  Network:          testnet
+  Storage:          ./
+  snarkOS:          /path/to/snarkos
+
+🔌 Endpoints:
+  Validator 0:      http://localhost:3030 (REST)
+  Validator 1:      http://localhost:3031 (REST)
+  Validator 2:      http://localhost:3032 (REST)
+  Validator 3:      http://localhost:3033 (REST)
+
+Do you want to proceed? [y/N]: y
+
+🟢 Validator 0 started (PID: 12345)
+🟢 Validator 1 started (PID: 12346)
+🟢 Validator 2 started (PID: 12347)
+🟢 Validator 3 started (PID: 12348)
+🔵 Client 0 started (PID: 12349)
+🔵 Client 1 started (PID: 12350)
+
+✅ Devnet is running!
+   Press Ctrl+C to stop.
+```
+
+### Start with Custom Node Count
+
+```bash
+leo devnet --num-validators 6 --num-clients 4
+```
+
+### Start with tmux
+
+```bash
+leo devnet --tmux
+```
+
+Each node runs in a separate tmux pane for easy monitoring:
+
+```bash
+# Attach to tmux session
+tmux attach -t leo-devnet
+
+# Navigate between panes
+Ctrl+B then arrow keys
+```
+
+### Start with Custom Storage
+
+```bash
+leo devnet --storage ./my-devnet
+```
+
+### Clear Storage Before Starting
+
+```bash
+leo devnet --clear-storage
+```
+
+<Warning>
+  This deletes all existing ledger data. Use with caution.
+</Warning>
+
+### Clean Storage Only
+
+```bash
+leo devnet --clean-only
+```
+
+Removes devnet storage without starting nodes.
+
+### Install and Use Specific snarkOS Version
+
+```bash
+leo devnet \
+  --snarkos ./bin/snarkos \
+  --snarkos-version 4.1.0 \
+  --snarkos-features test_network \
+  --install
+```
+
+This will:
+1. Install snarkOS 4.1.0 with `test_network` feature
+2. Save binary to `./bin/snarkos`
+3. Use it to start the devnet
+
+### Start with Custom Ports
+
+```bash
+leo devnet \
+  --rest-port 4000 \
+  --node-port 5000 \
+  --bft-port 6000
+```
+
+Validator 0 will use:
+- REST: `4000`
+- Node: `5000`
+- BFT: `6000`
+
+Validator 1 will use:
+- REST: `4001`
+- Node: `5001`
+- BFT: `6001`
+
+And so on...
+
+### Start with Custom Consensus Heights
+
+```bash
+leo devnet --consensus-heights 0,100,200
+```
+
+Or via environment variable:
+
+```bash
+CONSENSUS_VERSION_HEIGHTS=0,100,200 leo devnet
+```
+
+<Note>
+  Custom consensus heights require the `test_network` feature in snarkOS.
+</Note>
+
+### Start with High Verbosity
+
+```bash
+leo devnet --verbosity 3
+```
+
+Shows detailed debug logs from snarkOS.
+
+## Using the Devnet
+
+Once running, use the devnet with Leo commands:
+
+### Deploy Programs
+
+```bash
+leo deploy \
+  --broadcast \
+  --devnet \
+  --endpoint http://localhost:3030 \
+  --private-key APrivateKey1zkp8CZNn3yeCseEtxuVPbDCwSyhGW6yZKUYKfgXmcpoGPWH
+```
+
+### Execute Transactions
+
+```bash
+leo execute main 1u32 2u32 \
+  --broadcast \
+  --devnet \
+  --endpoint http://localhost:3030 \
+  --private-key APrivateKey1zkp8CZNn3yeCseEtxuVPbDCwSyhGW6yZKUYKfgXmcpoGPWH
+```
+
+### Query Network State
+
+```bash
+leo query block latest \
+  --endpoint http://localhost:3030 \
+  --network testnet
+```
+
+## Devnet Architecture
+
+### Validators
+- Validate and propose blocks
+- Participate in consensus
+- Maintain full ledger state
+- Expose REST API
+
+### Clients
+- Broadcast transactions
+- Query network state
+- Do not participate in consensus
+
+### Communication
+```
+Validator 0 ←→ Validator 1 ←→ Validator 2 ←→ Validator 3
+     ↓              ↓              ↓              ↓
+  Client 0 ←────→ Client 1
+```
+
+## Storage Structure
+
+```
+./
+├── validator-0/
+│   ├── ledger/          # Blockchain data
+│   └── logs/            # Node logs
+├── validator-1/
+│   ├── ledger/
+│   └── logs/
+├── validator-2/
+│   ├── ledger/
+│   └── logs/
+├── validator-3/
+│   ├── ledger/
+│   └── logs/
+├── client-0/
+│   └── logs/
+└── client-1/
+    └── logs/
+```
+
+## Default Private Keys
+
+Devnet uses deterministic private keys:
+
+```bash
+# Validator 0 (primary test key)
+APrivateKey1zkp8CZNn3yeCseEtxuVPbDCwSyhGW6yZKUYKfgXmcpoGPWH
+
+# Validator 1, 2, 3... (derived keys)
+```
+
+<Warning>
+  These keys are for testing only. Never use devnet keys on mainnet.
+</Warning>
+
+## Monitoring the Devnet
+
+### View Logs
+
+```bash
+# Tail validator 0 logs
+tail -f validator-0/logs/node.log
+
+# View all validator logs
+tail -f validator-*/logs/node.log
+```
+
+### Check Node Status
+
+Query REST API:
+
+```bash
+# Get latest block
+curl http://localhost:3030/testnet/latest/block
+
+# Get latest height
+curl http://localhost:3030/testnet/latest/height
+
+# Get node status  
+curl http://localhost:3030/testnet/node/status
+```
+
+### View Metrics
+
+If metrics are enabled:
+
+```bash
+curl http://localhost:9000/metrics  # Validator 0
+curl http://localhost:9001/metrics  # Validator 1
+```
+
+## Stopping the Devnet
+
+Press `Ctrl+C` to stop all nodes:
+
+```bash
+^C
+🛑 Shutting down devnet...
+   Stopped validator 0 (PID: 12345)
+   Stopped validator 1 (PID: 12346)
+   Stopped validator 2 (PID: 12347)
+   Stopped validator 3 (PID: 12348)
+   Stopped client 0 (PID: 12349)
+   Stopped client 1 (PID: 12350)
+✅ Devnet stopped.
+```
+
+## Troubleshooting
+
+### Port Already in Use
+
+```
+Failed to start validator 0: Address already in use
+```
+
+Solutions:
+1. Stop existing devnet
+2. Use different ports: `--rest-port 4000`
+3. Kill processes using the port
+
+### snarkOS Not Found
+
+```
+snarkOS binary not found at path
+```
+
+Solutions:
+1. Install snarkOS: `--install --snarkos ./bin/snarkos`
+2. Provide correct path: `--snarkos /path/to/snarkos`
+
+### Nodes Not Connecting
+
+Check:
+1. Firewall allows local connections
+2. Port configuration is correct
+3. Node logs for connection errors
+
+### Storage Issues
+
+```
+Failed to initialize ledger
+```
+
+Solutions:
+1. Clean storage: `--clean-only`
+2. Use different directory: `--storage ./new-devnet`
+3. Check disk space
+
+## Performance Tips
+
+1. **Reduce Nodes**: Use fewer validators for faster consensus
+2. **SSD Storage**: Use SSD for `--storage` directory
+3. **Lower Verbosity**: Use `--verbosity 0` for less logging
+4. **Dedicated Storage**: Use separate disk for storage
+
+## Comparison with Devnode
+
+| Feature | `leo devnet` | `leo devnode` |
+|---------|--------------|---------------|
+| **Nodes** | Multiple validators + clients | Single node |
+| **Consensus** | Full BFT consensus | Instant block creation |
+| **Use Case** | Realistic testing | Rapid development |
+| **Speed** | Slower (consensus) | Faster (instant) |
+| **Resources** | Higher | Lower |
+
+<Info>
+  Use `leo devnet` for realistic testing and [`leo devnode`](/cli/devnode) for rapid iteration.
+</Info>
+
+## Next Steps
+
+- [Deploy to devnet](/cli/deploy)
+- [Execute on devnet](/cli/execute)
+- [Use devnode](/cli/devnode)

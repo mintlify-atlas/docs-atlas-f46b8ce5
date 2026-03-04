@@ -1,0 +1,413 @@
+---
+title: leo test
+description: Run Leo program tests with the @test annotation
+---
+
+The `leo test` command discovers and runs test functions annotated with `@test` in your Leo programs.
+
+## Syntax
+
+```bash
+leo test [TEST_NAME] [OPTIONS]
+```
+
+## Arguments
+
+<ParamField path="TEST_NAME" type="string" default="">
+  Optional filter to run only tests whose qualified name matches this string.
+  
+  Examples:
+  - `test_add` - Runs tests containing "test_add"
+  - `my_program.aleo/test_transfer` - Runs specific test in program
+</ParamField>
+
+## Options
+
+### Network Options
+
+<ParamField path="--network" type="string">
+  Network type: `mainnet`, `testnet`, or `canary`. Defaults to `testnet`.
+</ParamField>
+
+<ParamField path="--endpoint" type="string">
+  Network endpoint URL for dependencies.
+</ParamField>
+
+### Build Options
+
+<ParamField path="--offline" type="boolean" default={false}>
+  Enable offline mode. Prevents network requests.
+</ParamField>
+
+<ParamField path="--no-cache" type="boolean" default={false}>
+  Don't use the dependency cache.
+</ParamField>
+
+<ParamField path="--no-local" type="boolean" default={false}>
+  Use network versions of dependencies.
+</ParamField>
+
+All [build options](/cli/build#options) are also supported.
+
+## Examples
+
+### Run All Tests
+
+```bash
+leo test
+```
+
+Output:
+```
+3 / 3 tests passed.
+PASSED: hello_world.aleo/test_add
+PASSED: hello_world.aleo/test_sub
+PASSED: hello_world.aleo/test_mul
+```
+
+### Run Specific Test
+
+```bash
+leo test test_add
+```
+
+Output:
+```
+1 / 1 tests passed.
+PASSED: hello_world.aleo/test_add
+```
+
+### Run Tests Matching Pattern
+
+```bash
+leo test transfer
+```
+
+Runs all tests containing "transfer" in their name.
+
+## Writing Tests
+
+### Basic Test
+
+Annotate transition functions with `@test`:
+
+```leo
+program hello_world.aleo {
+    // Function to test
+    transition add(a: u32, b: u32) -> u32 {
+        return a + b;
+    }
+
+    // Test function
+    @test
+    transition test_add() {
+        let result: u32 = add(1u32, 2u32);
+        assert_eq(result, 3u32);
+    }
+}
+```
+
+<Note>
+  Test functions must be transitions (entry points) to be discovered by `leo test`.
+</Note>
+
+### Test with Expected Failure
+
+Use `@should_fail` to test error conditions:
+
+```leo
+@test
+@should_fail
+transition test_overflow() {
+    let result: u32 = 4294967295u32 + 1u32; // Should overflow
+}
+```
+
+### Test with Custom Private Key
+
+Specify a private key for the test:
+
+```leo
+@test(private_key = "APrivateKey1zkp...")
+transition test_with_key() {
+    // Test code that requires specific private key
+}
+```
+
+### Multiple Tests
+
+```leo
+program calculator.aleo {
+    transition add(a: u32, b: u32) -> u32 {
+        return a + b;
+    }
+
+    transition sub(a: u32, b: u32) -> u32 {
+        return a - b;
+    }
+
+    transition mul(a: u32, b: u32) -> u32 {
+        return a * b;
+    }
+
+    @test
+    transition test_add() {
+        assert_eq(add(2u32, 3u32), 5u32);
+    }
+
+    @test
+    transition test_sub() {
+        assert_eq(sub(5u32, 3u32), 2u32);
+    }
+
+    @test
+    transition test_mul() {
+        assert_eq(mul(2u32, 3u32), 6u32);
+    }
+
+    @test
+    @should_fail
+    transition test_sub_underflow() {
+        let result: u32 = sub(0u32, 1u32); // Should fail
+    }
+}
+```
+
+## Test Output
+
+### Passing Tests
+
+```bash
+4 / 4 tests passed.
+PASSED: calculator.aleo/test_add
+PASSED: calculator.aleo/test_sub
+PASSED: calculator.aleo/test_mul
+PASSED: calculator.aleo/test_sub_underflow
+```
+
+### Failing Tests
+
+```bash
+2 / 3 tests passed.
+PASSED: calculator.aleo/test_add
+FAILED: calculator.aleo/test_sub       | Assertion failed: expected 2u32, got 3u32
+PASSED: calculator.aleo/test_mul
+```
+
+### No Tests Found
+
+```bash
+No tests run.
+```
+
+This occurs when:
+- No functions have the `@test` annotation
+- The test filter doesn't match any tests
+- All test functions are not transitions
+
+## Test Execution Flow
+
+1. **Build Phase**:
+   - Compiles program with `--build-tests` flag
+   - Includes test functions in build
+
+2. **Test Discovery**:
+   - Scans AST for `@test` annotations
+   - Filters by test name if provided
+   - Validates tests are transitions
+
+3. **Test Execution**:
+   - Initializes VM with in-memory ledger
+   - Executes each test independently
+   - Captures outputs and errors
+
+4. **Result Reporting**:
+   - Displays pass/fail for each test
+   - Shows error messages for failures
+   - Reports total pass/fail count
+
+## Assertions
+
+Leo provides built-in assertion functions:
+
+### assert_eq
+
+Asserts two values are equal:
+
+```leo
+assert_eq(actual, expected);
+```
+
+### assert_neq
+
+Asserts two values are not equal:
+
+```leo
+assert_neq(actual, unexpected);
+```
+
+### assert
+
+Asserts a boolean condition:
+
+```leo
+assert(value > 0u32);
+```
+
+## Testing Best Practices
+
+### 1. Test Coverage
+
+Test all public transitions:
+
+```leo
+// Good: Test covers main functionality
+@test
+transition test_transfer_success() {
+    // Test successful transfer
+}
+
+@test
+@should_fail
+transition test_transfer_insufficient_balance() {
+    // Test error case
+}
+```
+
+### 2. Descriptive Names
+
+Use clear, descriptive test names:
+
+```leo
+// Good
+@test
+transition test_add_two_positive_numbers() { ... }
+
+// Bad
+@test
+transition test1() { ... }
+```
+
+### 3. Test Edge Cases
+
+```leo
+@test
+transition test_add_zero() {
+    assert_eq(add(5u32, 0u32), 5u32);
+}
+
+@test
+transition test_add_max_value() {
+    assert_eq(add(4294967295u32, 0u32), 4294967295u32);
+}
+```
+
+### 4. Independent Tests
+
+Each test should be independent:
+
+```leo
+// Good: Each test is self-contained
+@test
+transition test_increment() {
+    let x: u32 = 0u32;
+    assert_eq(increment(x), 1u32);
+}
+
+@test
+transition test_decrement() {
+    let x: u32 = 1u32;
+    assert_eq(decrement(x), 0u32);
+}
+```
+
+### 5. Test with Realistic Data
+
+```leo
+@test
+transition test_transfer_realistic_amount() {
+    let amount: u64 = 1000000u64; // 1 credit
+    let result: u64 = calculate_fee(amount);
+    assert_eq(result, 10000u64); // 1% fee
+}
+```
+
+## Testing with Dependencies
+
+Tests can call functions from dependencies:
+
+```leo
+import credits.aleo;
+
+program my_program.aleo {
+    @test
+    transition test_with_credits() {
+        // Call functions from credits.aleo
+        let result: u64 = credits.aleo/some_function(100u64);
+        assert_eq(result, 100u64);
+    }
+}
+```
+
+## Continuous Integration
+
+Integrate `leo test` in CI/CD pipelines:
+
+```yaml
+# GitHub Actions example
+name: Test
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install Leo
+        run: curl -sSf https://raw.githubusercontent.com/AleoHQ/leo/refs/heads/mainnet/install.sh | sh
+      - name: Run tests
+        run: leo test
+```
+
+## Troubleshooting
+
+### Test Not Discovered
+
+Ensure:
+1. Function has `@test` annotation
+2. Function is a `transition` (not a `function`)
+3. Test name matches filter (if provided)
+
+### Test Fails Unexpectedly
+
+Check:
+1. Function logic is correct
+2. Assertions use correct expected values
+3. No side effects from previous tests
+
+### Build Errors in Tests
+
+If tests fail to compile:
+```bash
+leo build --build-tests
+```
+
+Fix any compilation errors before running tests.
+
+## Performance
+
+Test execution time depends on:
+- Number of tests
+- Complexity of test functions
+- Number of dependencies
+
+For large test suites, use filtering to run specific tests:
+
+```bash
+leo test module  # Run only module tests
+```
+
+## Next Steps
+
+- [Build your program](/cli/build)
+- [Run locally](/cli/run)
+- [Execute on-chain](/cli/execute)

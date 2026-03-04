@@ -1,0 +1,344 @@
+---
+title: 'Standard Library'
+description: 'Built-in functions and utilities available in Leo programs'
+---
+
+## Overview
+
+Leo provides a minimal standard library focused on zero-knowledge circuit operations. Most functionality is expressed through built-in operations and Aleo VM primitives.
+
+## Built-in Functions
+
+### Mapping Operations
+
+Mapping operations are available in finalizer functions for interacting with on-chain storage.
+
+#### Mapping::get
+
+Retrieve a value from a mapping by key.
+
+```leo
+mapping balances: address => u64;
+
+final fn get_balance(user: address) {
+    let balance: u64 = Mapping::get(balances, user);
+}
+```
+
+<Warning>
+If the key doesn't exist, `Mapping::get` will cause the transaction to fail. Use `Mapping::get_or_use` for safe access.
+</Warning>
+
+#### Mapping::get_or_use
+
+Retrieve a value from a mapping, or return a default if the key doesn't exist.
+
+```leo
+final fn safe_get_balance(user: address) {
+    let balance: u64 = Mapping::get_or_use(balances, user, 0u64);
+}
+```
+
+**Parameters:**
+- `mapping`: The mapping to query
+- `key`: The key to look up
+- `default`: The value to return if the key doesn't exist
+
+#### Mapping::set
+
+Store a value in a mapping.
+
+```leo
+final fn update_balance(user: address, amount: u64) {
+    Mapping::set(balances, user, amount);
+}
+```
+
+**Properties:**
+- Creates the key if it doesn't exist
+- Overwrites the existing value if the key exists
+- Changes are committed on-chain
+
+#### Mapping::remove
+
+Remove a key-value pair from a mapping.
+
+```leo
+final fn delete_balance(user: address) {
+    Mapping::remove(balances, user);
+}
+```
+
+### Random Number Generation
+
+The `ChaCha` namespace provides cryptographically secure randomness.
+
+#### ChaCha::rand_bool
+
+Generate a random boolean value.
+
+```leo
+final fn random_winner() {
+    let is_winner: bool = ChaCha::rand_bool();
+    assert(is_winner);
+}
+```
+
+<Note>
+Random values are generated deterministically based on the transaction's randomness seed, ensuring reproducibility.
+</Note>
+
+#### ChaCha::rand_u8 / rand_u16 / rand_u32 / rand_u64 / rand_u128
+
+Generate random unsigned integers.
+
+```leo
+final fn random_number() {
+    let random: u32 = ChaCha::rand_u32();
+}
+```
+
+#### ChaCha::rand_i8 / rand_i16 / rand_i32 / rand_i64 / rand_i128
+
+Generate random signed integers.
+
+```leo
+final fn random_signed() {
+    let random: i32 = ChaCha::rand_i32();
+}
+```
+
+#### ChaCha::rand_field
+
+Generate a random field element.
+
+```leo
+final fn random_field() {
+    let random: field = ChaCha::rand_field();
+}
+```
+
+#### ChaCha::rand_scalar
+
+Generate a random scalar value.
+
+```leo
+final fn random_scalar() {
+    let random: scalar = ChaCha::rand_scalar();
+}
+```
+
+### Assertions
+
+#### assert
+
+Assert that a condition is true. If false, the program execution fails.
+
+```leo
+fn validate_input(amount: u64) {
+    assert(amount > 0u64);
+    assert(amount <= 1000000u64);
+}
+```
+
+**Use Cases:**
+- Input validation
+- Invariant checking
+- Access control
+- Boundary conditions
+
+#### assert_eq
+
+Assert that two values are equal.
+
+```leo
+fn test_equality(a: u32, b: u32) {
+    assert_eq(a, b);
+}
+```
+
+#### assert_ne
+
+Assert that two values are not equal.
+
+```leo
+fn test_inequality(a: address, b: address) {
+    assert_ne(a, b);
+}
+```
+
+## Built-in Constants
+
+### Group Constants
+
+#### group::GEN
+
+The generator point of the elliptic curve group.
+
+```leo
+let generator: group = group::GEN;
+```
+
+## Operator Overloading
+
+Leo supports standard operators for built-in types:
+
+### Arithmetic Operators
+
+```leo
+let a: u32 = 10u32;
+let b: u32 = 3u32;
+
+let sum: u32 = a + b;       // Addition
+let diff: u32 = a - b;      // Subtraction
+let prod: u32 = a * b;      // Multiplication
+let quot: u32 = a / b;      // Division
+let rem: u32 = a % b;       // Modulo
+let pow: u32 = a ** b;      // Exponentiation
+```
+
+<Warning>
+Arithmetic operations can overflow. Leo uses safe arithmetic by default, causing the proof to fail on overflow.
+</Warning>
+
+### Comparison Operators
+
+```leo
+let equal: bool = a == b;          // Equality
+let not_equal: bool = a != b;      // Inequality
+let less: bool = a < b;            // Less than
+let less_eq: bool = a <= b;        // Less than or equal
+let greater: bool = a > b;         // Greater than
+let greater_eq: bool = a >= b;     // Greater than or equal
+```
+
+### Logical Operators
+
+```leo
+let x: bool = true;
+let y: bool = false;
+
+let and: bool = x && y;    // Logical AND
+let or: bool = x || y;     // Logical OR
+let not: bool = !x;        // Logical NOT
+```
+
+### Bitwise Operators
+
+```leo
+let a: u8 = 0b1010u8;
+let b: u8 = 0b1100u8;
+
+let and: u8 = a & b;       // Bitwise AND: 0b1000
+let or: u8 = a | b;        // Bitwise OR: 0b1110
+let xor: u8 = a ^ b;       // Bitwise XOR: 0b0110
+let shl: u8 = a << 1u8;    // Shift left: 0b10100
+let shr: u8 = a >> 1u8;    // Shift right: 0b0101
+```
+
+## Context Variables
+
+### self.caller
+
+The address of the account that invoked the current function.
+
+```leo
+fn get_caller() -> address {
+    return self.caller;
+}
+```
+
+**Use Cases:**
+- Authorization checks
+- Tracking function invokers
+- Access control
+
+### self.signer
+
+The address of the account that signed the transaction.
+
+```leo
+fn get_signer() -> address {
+    return self.signer;
+}
+```
+
+### block.height (Finalizers Only)
+
+The current block height, available only in finalizer functions.
+
+```leo
+final fn check_expiration() {
+    assert(block.height <= 1000u32);
+}
+```
+
+**Use Cases:**
+- Time-based logic
+- Expiration checks
+- Epoch-based features
+
+## Type Conversion
+
+### as Operator
+
+Explicitly cast between compatible types.
+
+```leo
+let small: u8 = 42u8;
+let medium: u32 = small as u32;
+let large: u64 = medium as u64;
+let field_val: field = large as field;
+```
+
+**Supported Conversions:**
+- Integer to integer (any size)
+- Integer to field
+- Integer to scalar
+- Field to integer (with potential loss)
+
+## No Standard Library Imports
+
+Unlike many languages, Leo does not require importing standard library functions. All built-in functions are available in the global namespace.
+
+```leo
+// No imports needed
+fn example() {
+    assert(true);
+    let rand: bool = ChaCha::rand_bool();
+}
+```
+
+## Limitations
+
+<Warning>
+The following features are NOT available in Leo's standard library:
+
+- File I/O operations
+- Network operations
+- Dynamic memory allocation
+- Floating-point arithmetic
+- String manipulation (beyond literals)
+- Date/time functions (use `block.height` instead)
+- External library imports
+</Warning>
+
+## Future Additions
+
+The Leo standard library is intentionally minimal. Future versions may include:
+
+- Hash functions (Poseidon, SHA-256, etc.)
+- Signature verification utilities
+- Merkle tree operations
+- Additional cryptographic primitives
+
+## Related Resources
+
+<CardGroup cols={2}>
+  <Card title="Built-in Types" icon="shapes" href="/reference/built-in-types">
+    Complete type reference
+  </Card>
+  <Card title="Examples" icon="code" href="/examples/overview">
+    See standard library in use
+  </Card>
+</CardGroup>

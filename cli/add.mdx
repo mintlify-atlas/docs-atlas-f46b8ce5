@@ -1,0 +1,477 @@
+---
+title: leo add
+description: Add dependencies to your Leo project from the network or local filesystem
+---
+
+The `leo add` command adds dependencies to your Leo project, either from the Aleo network or from local directories.
+
+## Syntax
+
+```bash
+leo add <NAME> [OPTIONS]
+```
+
+## Arguments
+
+<ParamField path="NAME" type="string" required>
+  The dependency name. Can be specified with or without `.aleo` suffix.
+  
+  Examples:
+  - `credits.aleo`
+  - `credits` (automatically adds `.aleo`)
+</ParamField>
+
+## Options
+
+<ParamField path="-l, --local" type="string">
+  Path to local dependency directory. Mutually exclusive with `--network`.
+</ParamField>
+
+<ParamField path="-n, --network" type="boolean">
+  Fetch dependency from the network. Mutually exclusive with `--local`.
+</ParamField>
+
+<ParamField path="-e, --edition" type="number">
+  Expected edition of the program.
+  
+  <Warning>
+    DO NOT USE unless you know what you are doing. Incorrect editions can cause build failures.
+  </Warning>
+</ParamField>
+
+<ParamField path="--dev" type="boolean" default={false}>
+  Add as a development dependency. Dev dependencies are only used during testing.
+</ParamField>
+
+## Examples
+
+### Add Network Dependency
+
+```bash
+leo add credits.aleo --network
+```
+
+Output:
+```
+✅ Added network dependency `credits.aleo`.
+```
+
+Updates `program.json`:
+```json
+{
+  "dependencies": [
+    {
+      "name": "credits.aleo",
+      "location": "network"
+    }
+  ]
+}
+```
+
+### Add Network Dependency (Short Syntax)
+
+```bash
+leo add credits --network
+```
+
+Automatically appends `.aleo`:
+```
+✅ Added network dependency `credits.aleo`.
+```
+
+### Add Local Dependency
+
+```bash
+leo add my_lib --local ../my_lib
+```
+
+Output:
+```
+✅ Added local dependency to program `my_lib.aleo` at path `../my_lib`.
+```
+
+Updates `program.json`:
+```json
+{
+  "dependencies": [
+    {
+      "name": "my_lib.aleo",
+      "location": "local",
+      "path": "../my_lib"
+    }
+  ]
+}
+```
+
+### Add with Specific Edition
+
+```bash
+leo add token --network --edition 0
+```
+
+Updates `program.json`:
+```json
+{
+  "dependencies": [
+    {
+      "name": "token.aleo",
+      "location": "network",
+      "edition": 0
+    }
+  ]
+}
+```
+
+### Add Development Dependency
+
+```bash
+leo add test_utils --local ../test_utils --dev
+```
+
+Updates `program.json`:
+```json
+{
+  "dev_dependencies": [
+    {
+      "name": "test_utils.aleo",
+      "location": "local",
+      "path": "../test_utils"
+    }
+  ]
+}
+```
+
+<Note>
+  Development dependencies are only included when building tests with `leo test` or `leo build --build-tests`.
+</Note>
+
+### Overwrite Existing Dependency
+
+```bash
+leo add my_lib --local ../my_lib_v2
+```
+
+Output:
+```
+⚠️  Program `my_lib.aleo` already exists as a local dependency at `../my_lib`. Overwriting.
+✅ Added local dependency to program `my_lib.aleo` at path `../my_lib_v2`.
+```
+
+## Dependency Types
+
+### Network Dependencies
+
+Fetched from the Aleo network:
+
+```bash
+leo add credits.aleo --network
+```
+
+Characteristics:
+- Downloaded during build
+- Cached for performance
+- Must be deployed on the network
+- Automatically updated on rebuild
+
+### Local Dependencies
+
+Referenced from local filesystem:
+
+```bash
+leo add my_lib --local ../my_lib
+```
+
+Characteristics:
+- Built from source code
+- Changes reflected immediately
+- Must exist at specified path
+- Ideal for development
+
+## Dependency Locations
+
+Dependency paths can be:
+
+### Relative Paths
+```bash
+leo add my_lib --local ../my_lib
+leo add shared --local ../../shared
+```
+
+### Absolute Paths
+```bash
+leo add my_lib --local /home/user/projects/my_lib
+```
+
+## Program Structure
+
+After adding dependencies, your `program.json` looks like:
+
+```json
+{
+  "program": "my_program.aleo",
+  "version": "0.1.0",
+  "description": "My Aleo program",
+  "license": "MIT",
+  "leo": "2.0.0",
+  "dependencies": [
+    {
+      "name": "credits.aleo",
+      "location": "network"
+    },
+    {
+      "name": "my_lib.aleo",
+      "location": "local",
+      "path": "../my_lib"
+    }
+  ],
+  "dev_dependencies": [
+    {
+      "name": "test_utils.aleo",
+      "location": "local",
+      "path": "../test_utils"
+    }
+  ]
+}
+```
+
+## Using Dependencies
+
+After adding dependencies, import them in your Leo code:
+
+```leo
+import credits.aleo;
+import my_lib.aleo;
+
+program my_program.aleo {
+    transition main() {
+        // Use imported programs
+        let result: u64 = my_lib.aleo/calculate(100u64);
+        return result;
+    }
+}
+```
+
+## Build Process
+
+When you run `leo build`:
+
+1. **Dependency Resolution**:
+   - Reads `program.json`
+   - Downloads network dependencies
+   - Locates local dependencies
+
+2. **Dependency Build**:
+   - Builds dependencies in dependency order
+   - Caches network dependencies
+   - Compiles local dependencies from source
+
+3. **Main Program Build**:
+   - Compiles main program with dependencies available
+   - Links to dependency bytecode
+
+## Dependency Graph
+
+Leo automatically resolves dependency graphs:
+
+```
+my_program.aleo
+├── credits.aleo (network)
+└── my_lib.aleo (local)
+    └── helper.aleo (network)
+```
+
+Build order: `credits` → `helper` → `my_lib` → `my_program`
+
+## Common Patterns
+
+### Standard Library Dependencies
+
+```bash
+leo add credits.aleo --network
+```
+
+The `credits.aleo` program is commonly used for:
+- Token transfers
+- Fee payments
+- Balance queries
+
+### Multi-Project Workspace
+
+```
+workspace/
+├── shared_lib/
+│   ├── src/
+│   └── program.json
+├── project_a/
+│   ├── src/
+│   └── program.json
+└── project_b/
+    ├── src/
+    └── program.json
+```
+
+```bash
+cd project_a
+leo add shared_lib --local ../shared_lib
+
+cd ../project_b
+leo add shared_lib --local ../shared_lib
+```
+
+### Test Dependencies
+
+```bash
+leo add test_helpers --local ../test_helpers --dev
+```
+
+Use in tests:
+```leo
+import test_helpers.aleo;
+
+program my_program.aleo {
+    @test
+    transition test_main() {
+        let result: bool = test_helpers.aleo/assert_eq(1u32, 1u32);
+        assert(result);
+    }
+}
+```
+
+## Dependency Caching
+
+Network dependencies are cached:
+
+```
+~/.leo/cache/
+├── testnet/
+│   └── credits.aleo/
+│       └── edition-0/
+│           ├── program.aleo
+│           └── metadata.json
+└── mainnet/
+    └── ...
+```
+
+Cache behavior:
+- Dependencies downloaded once
+- Reused across projects
+- Updated on `leo build --no-cache`
+
+## Troubleshooting
+
+### Dependency Not Found on Network
+
+```
+Failed to fetch program 'my_program.aleo' from network.
+```
+
+Ensure:
+1. Program is deployed on the network
+2. Program name is correct
+3. Network endpoint is accessible
+
+### Local Dependency Not Found
+
+```
+Failed to read dependency at path '../my_lib'.
+```
+
+Check:
+1. Path is correct (relative or absolute)
+2. Directory contains valid Leo project
+3. `program.json` exists in dependency
+
+### Circular Dependencies
+
+```
+Circular dependency detected: A → B → A
+```
+
+Restructure your code:
+1. Extract shared logic to common dependency
+2. Remove circular references
+3. Use dependency injection patterns
+
+### Invalid Program Name
+
+```
+Invalid program name: my-program
+```
+
+Program names must:
+- End with `.aleo`
+- Contain only alphanumeric characters and underscores
+- Start with a letter
+
+Valid: `my_program.aleo`, `token123.aleo`
+Invalid: `my-program.aleo`, `123token.aleo`
+
+### Version Conflicts
+
+If dependencies require different Leo versions:
+
+```
+Dependency 'my_lib' requires Leo 1.9.0, but current version is 2.0.0.
+```
+
+Solutions:
+1. Update dependency to match Leo version
+2. Use compatible dependency version
+3. Update Leo CLI
+
+## Best Practices
+
+### 1. Use Specific Editions
+
+For production, pin dependency editions:
+
+```bash
+leo add token --network --edition 0
+```
+
+### 2. Local for Development, Network for Production
+
+```bash
+# Development
+leo add my_lib --local ../my_lib
+
+# Production (after deploying my_lib)
+leo remove my_lib
+leo add my_lib --network
+```
+
+### 3. Separate Dev Dependencies
+
+```bash
+leo add test_utils --local ../test_utils --dev
+leo add mock_data --local ../mocks --dev
+```
+
+### 4. Document Dependencies
+
+Update `README.md`:
+
+```markdown
+## Dependencies
+
+- `credits.aleo` - Standard token operations
+- `my_lib.aleo` - Custom business logic
+```
+
+### 5. Version Control
+
+Commit `program.json` but not cached dependencies:
+
+```gitignore
+# .gitignore
+.leo/
+build/
+outputs/
+.env
+```
+
+## Next Steps
+
+- [Remove dependencies](/cli/remove)
+- [Build with dependencies](/cli/build)
+- [Deploy dependencies](/cli/deploy)

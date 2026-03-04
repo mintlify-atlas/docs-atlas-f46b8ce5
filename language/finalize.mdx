@@ -1,0 +1,489 @@
+---
+title: Finalize Blocks
+description: Learn about finalize blocks for on-chain computation and state management in Leo
+---
+
+## What is Finalize?
+
+Finalize blocks enable on-chain computation and state changes in Leo programs. While regular functions execute off-chain with private inputs, finalize functions run on-chain with public inputs and can modify mapping state.
+
+## The Final Pattern
+
+Functions return `Final` to trigger on-chain finalization:
+
+```leo
+fn transfer_public(public receiver: address, public amount: u64) -> Final {
+    return final { finalize_transfer_public(self.caller, receiver, amount); };
+}
+```
+
+The `final { ... }` block specifies which finalize function to call with which arguments.
+
+## Finalize Functions
+
+Finalize functions are declared with the `final fn` keywords:
+
+```leo
+final fn finalize_transfer_public(
+    public sender: address,
+    public receiver: address,
+    public amount: u64
+) {
+    // Update sender balance
+    let sender_amount: u64 = Mapping::get_or_use(account, sender, 0u64);
+    Mapping::set(account, sender, sender_amount - amount);
+    
+    // Update receiver balance
+    let receiver_amount: u64 = Mapping::get_or_use(account, receiver, 0u64);
+    Mapping::set(account, receiver, receiver_amount + amount);
+}
+```
+
+<Note>
+Finalize functions are declared outside the program scope and must have all parameters marked as `public`.
+</Note>
+
+## Complete Example
+
+Here's a complete token transfer with finalization:
+
+```leo
+program token.aleo {
+    mapping account: address => u64;
+    
+    // Off-chain function that returns Final
+    fn transfer_public(
+        public receiver: address,
+        public amount: u64
+    ) -> Final {
+        return final { 
+            finalize_transfer_public(self.caller, receiver, amount) 
+        };
+    }
+}
+
+// On-chain finalize function
+final fn finalize_transfer_public(
+    public sender: address,
+    public receiver: address,
+    public amount: u64
+) {
+    // Deduct from sender
+    let sender_amount: u64 = Mapping::get_or_use(account, sender, 0u64);
+    Mapping::set(account, sender, sender_amount - amount);
+    
+    // Add to receiver
+    let receiver_amount: u64 = Mapping::get_or_use(account, receiver, 0u64);
+    Mapping::set(account, receiver, receiver_amount + amount);
+}
+```
+
+## Off-Chain + On-Chain Pattern
+
+Combine private computation with public state changes:
+
+```leo
+program token.aleo {
+    mapping account: address => u64;
+    
+    record token {
+        owner: address,
+        amount: u64,
+    }
+    
+    // Off-chain: Create private record, trigger on-chain update
+    fn transfer_private_to_public(
+        sender: token,
+        public receiver: address,
+        public amount: u64
+    ) -> (token, Final) {
+        // Private computation
+        let difference: u64 = sender.amount - amount;
+        
+        let remaining: token = token {
+            owner: sender.owner,
+            amount: difference,
+        };
+        
+        // Return private record + trigger finalize
+        return (remaining, final { 
+            finalize_transfer_private_to_public(receiver, amount) 
+        });
+    }
+}
+
+// On-chain: Update public state
+final fn finalize_transfer_private_to_public(
+    public receiver: address,
+    public amount: u64
+) {
+    let current_amount: u64 = Mapping::get_or_use(account, receiver, 0u64);
+    Mapping::set(account, receiver, current_amount + amount);
+}
+```
+
+## Accessing Blockchain State
+
+Finalize functions can access blockchain context:
+
+```leo
+final fn finalize_play() {
+    // Access current block height
+    assert(block.height <= 1000u32);
+    
+    // Use randomness
+    assert(ChaCha::rand_bool());
+    
+    // Update mappings
+    let winners: u8 = num_winners.get_or_use(0u8, 0u8);
+    num_winners.set(0u8, winners + 1u8);
+}
+```
+
+### Block Context
+
+Available blockchain information:
+
+```leo
+final fn check_block_info() {
+    // Current block height
+    let height: u32 = block.height;
+    
+    // Check time-based conditions
+    assert(block.height >= START_BLOCK);
+    assert(block.height <= END_BLOCK);
+}
+```
+
+### Randomness
+
+Access on-chain randomness:
+
+```leo
+final fn use_randomness() {
+    // Random boolean
+    let coin_flip: bool = ChaCha::rand_bool();
+    assert(coin_flip);
+    
+    // Use randomness for selection
+    if ChaCha::rand_bool() {
+        process_winner();
+    }
+}
+```
+
+## Mapping Operations in Finalize
+
+Finalize functions are the only place where mappings can be modified:
+
+```leo
+final fn finalize_mint_public(
+    public receiver: address,
+    public amount: u64
+) {
+    // Read from mapping
+    let current_amount: u64 = Mapping::get_or_use(account, receiver, 0u64);
+    
+    // Write to mapping
+    Mapping::set(account, receiver, current_amount + amount);
+}
+```
+
+See [Mappings](/language/mappings) for detailed mapping operations.
+
+## Validation in Finalize
+
+Use assertions to validate conditions:
+
+```leo
+final fn finalize_play() {
+    // Validate block height
+    assert(block.height <= 1000u32);
+    
+    // Validate random condition
+    assert(ChaCha::rand_bool());
+    
+    // Validate state
+    let winners: u8 = num_winners.get_or_use(0u8, 0u8);
+    assert(winners < 5u8);
+    
+    // Update if all assertions pass
+    num_winners.set(0u8, winners + 1u8);
+}
+```
+
+<Warning>
+If any assertion in a finalize function fails, the entire transaction is reverted, including off-chain record creation.
+</Warning>
+
+## Multiple Return Values with Final
+
+Return multiple values along with Final:
+
+```leo
+fn play() -> (Ticket, Final) {
+    let ticket: Ticket = Ticket {
+        owner: self.caller,
+    };
+    return (ticket, final { finalize_play() });
+}
+
+fn transfer_public_to_private(
+    public receiver: address,
+    public amount: u64
+) -> (token, Final) {
+    let transferred: token = token {
+        owner: receiver,
+        amount: amount,
+    };
+    
+    return (transferred, final { 
+        finalize_transfer_public_to_private(self.caller, amount) 
+    });
+}
+```
+
+## Finalize Parameters
+
+All finalize parameters must be marked as `public`:
+
+```leo
+// Correct: All parameters are public
+final fn finalize_update(
+    public sender: address,
+    public amount: u64,
+    public timestamp: u64
+) {
+    // Implementation
+}
+
+// Incorrect: Private parameters not allowed
+final fn invalid_finalize(
+    sender: address,  // Error: must be public
+    amount: u64       // Error: must be public
+) {
+    // This won't compile
+}
+```
+
+## Passing Data to Finalize
+
+Pass data from the off-chain function to the finalize function:
+
+```leo
+fn transfer_public(
+    public receiver: address,
+    public amount: u64
+) -> Final {
+    // Pass self.caller, receiver, and amount to finalize
+    return final { 
+        finalize_transfer_public(self.caller, receiver, amount) 
+    };
+}
+
+final fn finalize_transfer_public(
+    public sender: address,    // From self.caller
+    public receiver: address,  // From parameter
+    public amount: u64        // From parameter
+) {
+    // Use the passed values
+    let sender_balance: u64 = Mapping::get_or_use(account, sender, 0u64);
+    Mapping::set(account, sender, sender_balance - amount);
+    
+    let receiver_balance: u64 = Mapping::get_or_use(account, receiver, 0u64);
+    Mapping::set(account, receiver, receiver_balance + amount);
+}
+```
+
+## Lottery Example
+
+Complete lottery program with finalization:
+
+```leo
+program lottery.aleo {
+    // Track number of winners
+    mapping num_winners: u8 => u8;
+    
+    // Lottery ticket record
+    record Ticket {
+        owner: address,
+    }
+    
+    // Off-chain: Create ticket, trigger on-chain validation
+    fn play() -> (Ticket, Final) {
+        let ticket: Ticket = Ticket {
+            owner: self.caller,
+        };
+        return (ticket, final { finalize_play() });
+    }
+}
+
+// On-chain: Validate and update state
+final fn finalize_play() {
+    // Check lottery hasn't expired
+    assert(block.height <= 1000u32);
+    
+    // Randomly determine winner
+    assert(ChaCha::rand_bool());
+    
+    // Check winner limit
+    let winners: u8 = num_winners.get_or_use(0u8, 0u8);
+    assert(winners < 5u8);
+    
+    // Record winner
+    num_winners.set(0u8, winners + 1u8);
+}
+```
+
+## Best Practices
+
+### 1. Minimize On-Chain Computation
+
+```leo
+// Good: Complex computation off-chain
+fn calculate_and_store(data: [u32; 100]) -> Final {
+    let result: u64 = expensive_calculation(data);  // Off-chain
+    return final { store_result(result) };           // On-chain
+}
+
+final fn store_result(public result: u64) {
+    Mapping::set(results, 0u8, result);
+}
+
+// Avoid: Heavy computation on-chain
+final fn bad_practice(public data: [u32; 100]) {
+    let result: u64 = expensive_calculation(data);  // Expensive on-chain
+    Mapping::set(results, 0u8, result);
+}
+```
+
+### 2. Validate Early
+
+```leo
+final fn safe_transfer(
+    public sender: address,
+    public receiver: address,
+    public amount: u64
+) {
+    // Validate first
+    let sender_balance: u64 = Mapping::get_or_use(account, sender, 0u64);
+    assert(sender_balance >= amount);
+    
+    // Then update
+    Mapping::set(account, sender, sender_balance - amount);
+    let receiver_balance: u64 = Mapping::get_or_use(account, receiver, 0u64);
+    Mapping::set(account, receiver, receiver_balance + amount);
+}
+```
+
+### 3. Atomic Updates
+
+```leo
+// Good: Both updates succeed or fail together
+final fn atomic_swap(
+    public addr1: address,
+    public addr2: address,
+    public amount: u64
+) {
+    let balance1: u64 = Mapping::get_or_use(account, addr1, 0u64);
+    let balance2: u64 = Mapping::get_or_use(account, addr2, 0u64);
+    
+    // Validate both accounts
+    assert(balance1 >= amount);
+    assert(balance2 >= amount);
+    
+    // Update both
+    Mapping::set(account, addr1, balance1 - amount);
+    Mapping::set(account, addr2, balance2 + amount);
+}
+```
+
+### 4. Clear Error Conditions
+
+```leo
+final fn validated_operation(
+    public user: address,
+    public amount: u64
+) {
+    // Clear validation with meaningful checks
+    assert(amount > 0u64);  // Amount must be positive
+    
+    let balance: u64 = Mapping::get_or_use(account, user, 0u64);
+    assert(balance >= amount);  // Sufficient balance required
+    assert(balance - amount <= MAX_BALANCE);  // Result within limits
+    
+    Mapping::set(account, user, balance - amount);
+}
+```
+
+## Common Patterns
+
+### Conditional State Updates
+
+```leo
+final fn update_high_score(
+    public player: address,
+    public score: u64
+) {
+    let current: u64 = Mapping::get_or_use(high_scores, player, 0u64);
+    
+    // Only update if new score is higher
+    if score > current {
+        Mapping::set(high_scores, player, score);
+    }
+}
+```
+
+### Time-Based Logic
+
+```leo
+const AUCTION_END: u32 = 10000u32;
+
+final fn finalize_bid(public bidder: address, public amount: u64) {
+    // Check auction is still active
+    assert(block.height < AUCTION_END);
+    
+    // Process bid
+    let highest_bid: u64 = Mapping::get_or_use(bids, 0u8, 0u64);
+    assert(amount > highest_bid);
+    
+    Mapping::set(bids, 0u8, amount);
+    Mapping::set(bidders, 0u8, bidder);
+}
+```
+
+### Rate Limiting
+
+```leo
+mapping last_action: address => u32;
+
+final fn rate_limited_action(public user: address) {
+    let last: u32 = Mapping::get_or_use(last_action, user, 0u32);
+    
+    // Require 100 blocks between actions
+    assert(block.height >= last + 100u32);
+    
+    // Perform action
+    process_action(user);
+    
+    // Update timestamp
+    Mapping::set(last_action, user, block.height);
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Mappings" icon="map" href="/language/mappings">
+    Learn about on-chain storage
+  </Card>
+  <Card title="Functions" icon="function" href="/language/functions">
+    Return Final from functions
+  </Card>
+  <Card title="Records" icon="rectangle-list" href="/language/records">
+    Combine with private records
+  </Card>
+  <Card title="Programs" icon="file-code" href="/language/programs">
+    Program structure overview
+  </Card>
+</CardGroup>

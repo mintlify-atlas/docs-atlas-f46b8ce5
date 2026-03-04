@@ -1,0 +1,213 @@
+---
+title: Installation
+description: Install Leo on macOS, Linux, or Windows and verify your installation
+---
+
+# Installation
+
+This guide will help you install Leo on your system. Leo is distributed through Cargo (Rust's package manager) and can also be built from source.
+
+## System Requirements
+
+<Info>
+Leo requires **Rust 1.93.1** or later. Make sure you have Rust installed before proceeding.
+</Info>
+
+### Supported Platforms
+
+- **macOS** (Intel and Apple Silicon)
+- **Linux** (x86_64)
+- **Windows** (64-bit and 32-bit)
+
+## Install Rust
+
+If you don't have Rust installed, you'll need to install it first using [rustup](https://www.rustup.rs/).
+
+<Steps>
+
+<Step title="Install Rust on macOS or Linux">
+
+Run the following command in your terminal:
+
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+```
+
+This will download and install `rustup`, which manages Rust versions.
+
+</Step>
+
+<Step title="Install Rust on Windows">
+
+Download and run the appropriate installer:
+
+- **Windows 64-bit**: [Download installer](https://win.rustup.rs/x86_64)
+- **Windows 32-bit**: [Download installer](https://win.rustup.rs/i686)
+
+Follow the on-screen instructions to complete the installation.
+
+</Step>
+
+<Step title="Verify Rust Installation">
+
+After installation, verify that Rust is installed correctly:
+
+```bash
+rustc --version
+cargo --version
+```
+
+You should see version information for both commands.
+
+</Step>
+
+</Steps>
+
+## Install Leo
+
+There are two ways to install Leo: using Cargo or building from source.
+
+<Tabs>
+  <Tab title="Install with Cargo (Recommended)">
+
+### Install Latest Release
+
+If you don't intend to work on the Leo compiler itself, you can install the latest Leo release with:
+
+```bash
+cargo install leo-lang
+```
+
+This will download, compile, and install the `leo` binary in your system.
+
+<Note>
+The installation may take several minutes as Cargo compiles Leo and its dependencies.
+</Note>
+
+  </Tab>
+  <Tab title="Build from Source">
+
+### Build from Source Code
+
+If you'd like to install the latest unreleased top of tree Leo, you can build from source code:
+
+```bash
+# Download the source code
+git clone https://github.com/ProvableHQ/leo
+cd leo
+
+# Install 'leo'
+cargo install --path crates/leo
+```
+
+This will clone the Leo repository and build the compiler from the latest source code.
+
+<Warning>
+Building from source gives you the latest features but may include unreleased or unstable code.
+</Warning>
+
+  </Tab>
+</Tabs>
+
+## Verify Installation
+
+Once installed, verify that Leo is working correctly:
+
+<Steps>
+
+<Step title="Check Leo is in your PATH">
+
+Run the following command:
+
+```bash
+leo
+```
+
+You should see the Leo help message with available commands.
+
+</Step>
+
+<Step title="Check Leo version">
+
+Verify which version of Leo you have installed:
+
+```bash
+leo --version
+```
+
+This will display the current version of Leo, for example: `leo 3.4.0`.
+
+</Step>
+
+</Steps>
+
+## Update Leo
+
+You can update Leo to the latest released version using the following command:
+
+```bash
+leo update
+```
+
+<Warning>
+If you were using a prerelease version of Leo, this will overwrite that with the latest released version.
+</Warning>
+
+## Command Line Options
+
+Leo provides several global flags that can be used with any command:
+
+```bash
+leo [OPTIONS] <COMMAND>
+```
+
+### Global Options
+
+- `-d, --debug` - Print additional information for debugging
+- `-q, --quiet` - Suppress CLI output
+- `--json-output[=<PATH>]` - Write results as JSON to a file
+- `--disable-update-check` - Disable Leo's daily check for version updates
+- `--path <PATH>` - Path to Leo program root folder
+- `--home <PATH>` - Path to Aleo program registry
+
+## Troubleshooting
+
+### Leo command not found
+
+If you get a "command not found" error, make sure Cargo's bin directory is in your PATH:
+
+```bash
+export PATH="$HOME/.cargo/bin:$PATH"
+```
+
+Add this line to your `~/.bashrc`, `~/.zshrc`, or equivalent shell configuration file.
+
+### Installation fails during compilation
+
+If installation fails with compilation errors:
+
+1. Make sure you have Rust 1.93.1 or later:
+   ```bash
+   rustup update
+   ```
+
+2. Try cleaning the cargo cache:
+   ```bash
+   cargo clean
+   ```
+
+3. Attempt the installation again
+
+### Permission denied errors
+
+On Unix-like systems, you may need to make sure you have write permissions to Cargo's installation directory, or use:
+
+```bash
+cargo install leo-lang --locked
+```
+
+## Next Steps
+
+<Card title="Quick Start Tutorial" icon="rocket" href="/quickstart">
+  Create your first Leo program and learn the basics
+</Card>

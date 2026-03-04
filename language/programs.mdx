@@ -1,0 +1,306 @@
+---
+title: Programs
+description: Learn about Leo program structure, declarations, and organization
+---
+
+## Program Declaration
+
+Every Leo program must declare a program scope with a unique program identifier. The program identifier follows the format `name.aleo`.
+
+```leo
+program token.aleo {
+    // Program contents
+}
+```
+
+## Program Structure
+
+A Leo program consists of several components, declared in the following order:
+
+1. **Imports** (optional)
+2. **Program scope** (required)
+3. **Mappings** (optional)
+4. **Records and Structs** (optional)
+5. **Functions** (required)
+6. **Finalize functions** (optional)
+
+### Complete Example
+
+```leo
+program lottery.aleo {
+    // 1. Mapping declarations
+    mapping num_winners: u8 => u8;
+    
+    // 2. Record definitions
+    record Ticket {
+        owner: address,
+    }
+    
+    // 3. Functions
+    fn play() -> (Ticket, Final) {
+        let ticket: Ticket = Ticket {
+            owner: self.caller,
+        };
+        return (ticket, final { finalize_play() });
+    }
+}
+
+// 4. Finalize functions (outside program scope)
+final fn finalize_play() {
+    assert(block.height <= 1000u32);
+    assert(ChaCha::rand_bool());
+    
+    let winners: u8 = num_winners.get_or_use(0u8, 0u8);
+    assert(winners < 5u8);
+    num_winners.set(0u8, winners + 1u8);
+}
+```
+
+## Program Components
+
+### Mappings
+
+Mappings define on-chain storage with a key-value structure:
+
+```leo
+mapping account: address => u64;
+mapping balances: address => u128;
+mapping num_winners: u8 => u8;
+```
+
+### Records
+
+Records define private, owned data structures:
+
+```leo
+record token {
+    owner: address,
+    amount: u64,
+}
+
+record Ticket {
+    owner: address,
+}
+```
+
+### Structs
+
+Structs define composite data types:
+
+```leo
+struct Row {
+    c1: u8,
+    c2: u8,
+    c3: u8
+}
+
+struct Board {
+    r1: Row,
+    r2: Row,
+    r3: Row,
+}
+```
+
+### Functions
+
+Functions define the executable logic of your program:
+
+```leo
+fn new() -> Board {
+    return Board {
+        r1: Row { c1: 0u8, c2: 0u8, c3: 0u8 },
+        r2: Row { c1: 0u8, c2: 0u8, c3: 0u8 },
+        r3: Row { c1: 0u8, c2: 0u8, c3: 0u8 },
+    };
+}
+```
+
+## Imports
+
+Leo programs can import other programs to reuse functionality:
+
+```leo
+import credits.aleo;
+import token.aleo;
+
+program my_app.aleo {
+    // Use imported programs
+    fn transfer_credits() {
+        // Call functions from credits.aleo
+    }
+}
+```
+
+<Note>
+Imported programs must be available in your project's dependencies or published on the Aleo network.
+</Note>
+
+## Self References
+
+Within a function, you can access the caller's address using `self.caller`:
+
+```leo
+fn transfer_public(public receiver: address, public amount: u64) -> Final {
+    return final { finalize_transfer_public(self.caller, receiver, amount); };
+}
+```
+
+## Block Context
+
+Finalize functions can access blockchain context through the `block` object:
+
+```leo
+final fn finalize_play() {
+    // Access current block height
+    assert(block.height <= 1000u32);
+}
+```
+
+## Program Naming
+
+### Valid Names
+
+Program names must:
+- Be lowercase
+- Contain only alphanumeric characters and underscores
+- End with `.aleo`
+- Be unique on the Aleo network
+
+<CodeGroup>
+```leo Valid
+program token.aleo { }
+program my_app.aleo { }
+program game2048.aleo { }
+```
+
+```leo Invalid
+program Token.aleo { }  // Uppercase not allowed
+program my-app.aleo { } // Hyphens not allowed
+program token { }       // Must end with .aleo
+```
+</CodeGroup>
+
+## Multiple Programs
+
+A Leo project typically contains:
+- One main program in `src/main.leo`
+- Optional imported programs
+- Build configuration in `program.json`
+
+### Project Structure
+
+```
+my-project/
+├── src/
+│   └── main.leo          # Main program
+├── imports/
+│   └── helper.leo        # Imported programs
+├── build/                # Compiled output
+├── program.json          # Project configuration
+└── README.md
+```
+
+## Program Constants
+
+You can define program-level constants:
+
+```leo
+program token.aleo {
+    const MAX_SUPPLY: u64 = 1000000u64;
+    const DECIMALS: u8 = 6u8;
+    
+    mapping account: address => u64;
+    
+    fn get_max_supply() -> u64 {
+        return MAX_SUPPLY;
+    }
+}
+```
+
+## Best Practices
+
+### 1. Clear Naming
+
+Use descriptive names for programs, functions, and variables:
+
+```leo
+// Good
+program token_swap.aleo
+fn calculate_exchange_rate()
+
+// Avoid
+program p.aleo
+fn calc()
+```
+
+### 2. Organize by Functionality
+
+Group related functions and types together:
+
+```leo
+program token.aleo {
+    // Storage
+    mapping account: address => u64;
+    
+    // Types
+    record token { ... }
+    
+    // Mint functions
+    fn mint_public() { ... }
+    fn mint_private() { ... }
+    
+    // Transfer functions
+    fn transfer_public() { ... }
+    fn transfer_private() { ... }
+}
+```
+
+### 3. Document Public Interfaces
+
+Add comments to explain function behavior:
+
+```leo
+// The function `mint_public` issues the specified token amount 
+// for the token receiver publicly on the network.
+fn mint_public(public receiver: address, public amount: u64) -> Final {
+    return final { finalize_mint_public(receiver, amount); };
+}
+```
+
+### 4. Separate Concerns
+
+Use the finalize pattern to separate off-chain and on-chain logic:
+
+```leo
+// Off-chain: Create private records
+fn transfer_private(sender: token, receiver: address, amount: u64) 
+    -> (token, token) {
+    // Private computation
+}
+
+// On-chain: Update public state
+final fn finalize_transfer_public(
+    public sender: address, 
+    public receiver: address, 
+    public amount: u64
+) {
+    // Public state changes
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Data Types" icon="database" href="/language/data-types">
+    Explore Leo's type system
+  </Card>
+  <Card title="Functions" icon="function" href="/language/functions">
+    Learn about function declarations
+  </Card>
+  <Card title="Imports" icon="file-import" href="/language/imports">
+    Import other programs
+  </Card>
+  <Card title="Mappings" icon="map" href="/language/mappings">
+    Use on-chain storage
+  </Card>
+</CardGroup>

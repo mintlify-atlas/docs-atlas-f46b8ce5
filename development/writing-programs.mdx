@@ -1,0 +1,368 @@
+---
+title: Writing Leo Programs
+description: Best practices for writing Leo programs, project structure, and code organization
+---
+
+Learn how to write well-structured Leo programs following best practices and conventions used in the Leo compiler codebase.
+
+## Project Structure
+
+A Leo project follows a standardized directory structure:
+
+```
+my_project/
+├── program.json          # Project manifest
+├── src/
+│   └── main.leo         # Main program file
+├── tests/               # Test files
+│   └── test_*.leo
+├── build/               # Compiled output
+│   ├── main.aleo
+│   └── imports/
+├── outputs/             # Compiler artifacts
+└── .gitignore
+```
+
+### Creating a New Project
+
+Use the Leo CLI to initialize a new project:
+
+```bash
+leo new my_program
+cd my_program
+```
+
+This creates a project structure with a basic program template:
+
+```leo title="src/main.leo"
+program my_program.aleo {
+    @noupgrade
+    constructor() {}
+
+    fn main(public a: u32, b: u32) -> u32 {
+        let c: u32 = a + b;
+        return c;
+    }
+}
+```
+
+<Note>
+The `@noupgrade` annotation prevents program upgrades after deployment. Other options include `@admin(address="...")` and `@checksum(mapping="...", key="...")` for controlled upgrades.
+</Note>
+
+## Program Manifest (program.json)
+
+The `program.json` file defines your project metadata and dependencies:
+
+```json title="program.json"
+{
+  "program": "my_program.aleo",
+  "version": "0.1.0",
+  "description": "",
+  "license": "MIT",
+  "dependencies": null,
+  "dev_dependencies": null
+}
+```
+
+### Key Fields
+
+- **program**: Must match your program name and end with `.aleo`
+- **version**: Semantic version of your program
+- **dependencies**: External programs your code imports
+- **dev_dependencies**: Dependencies only needed for tests
+
+<Tip>
+The Leo version is automatically tracked and doesn't need manual specification.
+</Tip>
+
+## Code Organization
+
+### Function Definitions
+
+Leo supports multiple function types:
+
+<Steps>
+
+<Step title="Regular Functions">
+Standard functions that execute on-chain:
+
+```leo
+fn add(a: u32, b: u32) -> u32 {
+    return a + b;
+}
+```
+</Step>
+
+<Step title="Async Functions with Finalize">
+Functions that return `Final` for on-chain finalization:
+
+```leo
+mapping Yo: u32 => u32;
+
+fn main() -> Final {
+    let f: Final = final { finalize_main(1u32, 1u32); };
+    return f;
+}
+```
+</Step>
+
+<Step title="Final Functions">
+Finalize functions that run in on-chain execution:
+
+```leo
+final fn finalize_main(a: u32, b: u32) {
+    Mapping::set(Yo, a, b);
+}
+```
+</Step>
+
+</Steps>
+
+### Data Structures
+
+#### Structs
+
+Define custom data types:
+
+```leo
+struct Foo {
+    x: u32,
+    y: u32
+}
+
+fn create_foo() -> Foo {
+    return Foo { x: 0, y: 0 };
+}
+```
+
+#### Records
+
+Private data structures with ownership:
+
+```leo
+record Token {
+    owner: address,
+    amount: u64,
+}
+
+fn mint_token() -> Token {
+    return Token {
+        owner: self.signer,
+        amount: 100u64,
+    };
+}
+```
+
+<Note>
+Records must have an `owner` field of type `address`. They represent private, owned assets.
+</Note>
+
+#### Mappings
+
+On-chain key-value storage:
+
+```leo
+mapping users: address => bool;
+
+fn register() -> Final {
+    let caller = self.caller;
+    return final { finalize_register(caller); };
+}
+```
+
+```leo
+final fn finalize_register(addr: address) {
+    Mapping::set(users, addr, true);
+}
+```
+
+### Arrays and Tuples
+
+#### Fixed-size Arrays
+
+```leo
+fn array_example() -> [u8; 3] {
+    let arr: [u8; 3] = [1u8, 2u8, 3u8];
+    return arr;
+}
+```
+
+#### Nested Arrays
+
+```leo
+fn nested(a: [[[bool; 2]; 2]; 2]) -> [[[bool; 2]; 2]; 2] {
+    a[0u8][0u8][0u8] = true;
+    a[1u8][1u8] = [true, false];
+    return a;
+}
+```
+
+#### Tuples
+
+```leo
+fn tuple_example() -> (u32, bool, address) {
+    return (42u32, true, self.signer);
+}
+```
+
+### Loops
+
+<Accordion title="For Loops">
+Leo supports range-based for loops:
+
+```leo
+fn sort_array(xs: [u8; 8]) -> [u8; 8] {
+    for i: u8 in 0u8..7u8 {
+        for j: u8 in 0u8..7u8 - i {
+            if xs[j] < xs[j+1u8] {
+                let tmp: u8 = xs[j];
+                xs[j] = xs[j+1u8];
+                xs[j+1u8] = tmp;
+            }
+        }
+    }
+    return xs;
+}
+```
+
+<Note>
+Loops are unrolled at compile time. Keep iteration counts reasonable to avoid excessive code generation.
+</Note>
+</Accordion>
+
+## Naming Conventions
+
+### Program Names
+
+Program names must:
+- End with `.aleo`
+- Start with a letter (not underscore or number)
+- Contain only ASCII alphanumeric characters and underscores
+- Not contain the keyword `aleo` in the name itself
+- Not be a SnarkVM reserved keyword
+
+<Warning>
+**Invalid names:**
+- `_myprogram.aleo` (starts with underscore)
+- `123program.aleo` (starts with number)
+- `my-program.aleo` (contains hyphen)
+- `myaleo.aleo` (contains "aleo")
+</Warning>
+
+### Variable and Function Names
+
+Follow snake_case conventions:
+
+```leo
+let user_balance: u64 = 1000u64;
+
+fn calculate_total_amount(a: u64, b: u64) -> u64 {
+    return a + b;
+}
+```
+
+## Importing Dependencies
+
+### Local Dependencies
+
+Import from local packages:
+
+```leo
+import child.aleo;
+
+program parent.aleo {
+    fn main() -> child.aleo/Foo {
+        return child.aleo/Foo { x: 0, y: 0 };
+    }
+}
+```
+
+### Network Dependencies
+
+Import from the Aleo network:
+
+```leo
+import credits.aleo;
+
+program my_program.aleo {
+    fn use_credits() {
+        // Access credits.aleo functions
+    }
+}
+```
+
+<Tip>
+Network dependencies are automatically fetched and cached in `~/.aleo/registry/`.
+</Tip>
+
+## Special Variables
+
+Leo provides special context variables:
+
+- `self.signer` - The address that signed the transaction
+- `self.caller` - The program that called this function
+
+```leo
+record Receipt {
+    owner: address,
+    issuer: address,
+}
+
+fn create_receipt() -> Receipt {
+    return Receipt {
+        owner: self.signer,  // Transaction signer
+        issuer: self.caller,  // Calling program
+    };
+}
+```
+
+## Best Practices Summary
+
+<Steps>
+
+<Step title="Use Type Annotations">
+Always specify types explicitly for clarity:
+
+```leo
+let amount: u64 = 100u64;  // Good
+let amount = 100u64;        // Works, but less clear
+```
+</Step>
+
+<Step title="Initialize Before Use">
+Declare and initialize variables together:
+
+```leo
+let total: u64 = 0u64;
+total = total + amount;
+```
+</Step>
+
+<Step title="Use Meaningful Names">
+Choose descriptive names for functions and variables:
+
+```leo
+fn calculate_user_reward(stake: u64, rate: u64) -> u64  // Good
+fn calc(x: u64, y: u64) -> u64                          // Avoid
+```
+</Step>
+
+<Step title="Document Complex Logic">
+Add comments for non-obvious code:
+
+```leo
+// Calculate compound interest over n periods
+let interest: u64 = principal * rate / 100u64;
+```
+</Step>
+
+</Steps>
+
+## Next Steps
+
+Now that you understand Leo program structure:
+
+- Learn about [testing](/development/testing) your programs
+- Explore [debugging](/development/debugging) techniques
+- Review [best practices](/development/best-practices) for production code

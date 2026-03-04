@@ -1,0 +1,408 @@
+---
+title: 'Changelog'
+description: 'Version history and changes to the Leo programming language'
+---
+
+## Overview
+
+This document tracks the version history of Leo, including new features, bug fixes, and breaking changes.
+
+<Note>
+Leo follows semantic versioning. The current stable version is **3.4.0**.
+</Note>
+
+## Version 3.4.0 (Current)
+
+### Highlights
+
+- Rowan-based parser for improved error recovery and IDE support
+- Enhanced type checking for complex expressions
+- Improved code generation optimizations
+- Better error messages with more context
+
+### Parser Improvements
+
+**Rowan Integration**
+- Migrated to rowan-based parser for better error handling
+- Improved syntax error recovery
+- Better support for IDE features (autocomplete, go-to-definition)
+- Preserved whitespace and comments in parse tree
+
+**Error Messages**
+- More descriptive parser errors with context
+- Better suggestions for common mistakes
+- Improved error spans pointing to exact locations
+
+### Language Features
+
+**Type System**
+- Enhanced type inference in complex expressions
+- Better handling of composite types
+- Improved const evaluation
+
+**Standard Library**
+- Complete ChaCha random number generation support
+- Mapping operations in finalizers
+- Block height access in finalizers
+
+### Compiler
+
+**Optimizations**
+- Dead code elimination improvements
+- Better constant folding
+- Reduced circuit complexity for common patterns
+- Improved register allocation
+
+**Code Generation**
+- More efficient Aleo instruction generation
+- Reduced redundant operations
+- Better handling of complex control flow
+
+### Tooling
+
+**Leo CLI**
+- Improved `leo build` performance
+- Better `leo run` output formatting
+- Enhanced `leo test` framework
+- `leo fmt` improvements
+
+**Developer Experience**
+- Faster compilation times
+- Better error reporting
+- Improved documentation
+- More example programs
+
+### Bug Fixes
+
+- Fixed type checking edge cases in tuple destructuring
+- Resolved issues with nested struct access
+- Corrected mapping operation behavior in finalizers
+- Fixed parser issues with complex expressions
+- Resolved integer literal parsing edge cases
+
+### Breaking Changes
+
+None in this release.
+
+## Version 3.3.x
+
+### Version 3.3.0
+
+**Language Features**
+- Introduction of finalizer functions
+- Mapping support for on-chain storage
+- Enhanced record types
+
+**Compiler**
+- Loop unrolling improvements
+- Better type checking for finalizers
+- Improved error messages
+
+**Breaking Changes**
+- Finalizer syntax changes
+- Record syntax updates
+
+## Version 3.2.x
+
+### Version 3.2.0
+
+**Language Features**
+- Vector type support
+- Optional type introduction
+- Future type for deferred computation
+
+**Compiler**
+- Enhanced optimization passes
+- Better dead code elimination
+- Improved static analysis
+
+**Tooling**
+- `leo disassemble` command
+- Better test framework
+- Improved CLI error handling
+
+## Version 3.1.x
+
+### Version 3.1.0
+
+**Language Features**
+- Tuple destructuring
+- Enhanced array operations
+- Improved string handling
+
+**Compiler**
+- Faster compilation
+- Better error recovery
+- Improved type inference
+
+**Bug Fixes**
+- Fixed array indexing edge cases
+- Resolved struct field access issues
+- Corrected type casting behavior
+
+## Version 3.0.x
+
+### Version 3.0.0
+
+**Major Release**
+
+This was a major rewrite with significant breaking changes.
+
+**Language Features**
+- Complete syntax overhaul
+- Records for private state
+- Mappings for public state
+- Finalizers for on-chain execution
+- New type system
+
+**Compiler**
+- Complete rewrite in Rust
+- Multi-pass architecture
+- Better optimization
+- Improved error messages
+
+**Breaking Changes**
+- Syntax changes throughout
+- New program structure
+- Record and mapping introduction
+- Function signature changes
+
+## Version 2.x (Legacy)
+
+### Version 2.0.0
+
+**Historical Release**
+
+Early version of Leo with basic functionality.
+
+**Features**
+- Basic type system
+- Simple function definitions
+- Circuit compilation
+
+<Warning>
+Version 2.x is no longer supported. Please upgrade to 3.x.
+</Warning>
+
+## Migration Guides
+
+### Migrating to 3.4.x from 3.3.x
+
+No breaking changes. Simply update:
+
+```bash
+leo update
+```
+
+Or:
+
+```bash
+cargo install leo-lang --force
+```
+
+### Migrating to 3.x from 2.x
+
+Major syntax changes required. Key updates:
+
+**Program Structure**
+```leo
+// 2.x
+circuit Token {
+    owner: address,
+    amount: u64,
+}
+
+// 3.x
+program token.aleo {
+    record Token {
+        owner: address,
+        amount: u64,
+    }
+}
+```
+
+**Function Definitions**
+```leo
+// 2.x
+function transfer(amount: u64) -> u64 {
+    return amount;
+}
+
+// 3.x
+fn transfer(amount: u64) -> u64 {
+    return amount;
+}
+```
+
+**On-Chain State**
+```leo
+// 2.x
+// No direct equivalent
+
+// 3.x
+mapping balances: address => u64;
+
+fn transfer_public(receiver: address, amount: u64) -> Final {
+    return final { finalize_transfer(receiver, amount); };
+}
+
+final fn finalize_transfer(receiver: address, amount: u64) {
+    Mapping::set(balances, receiver, amount);
+}
+```
+
+## Deprecation Notices
+
+### Planned for Future Versions
+
+The following features are under consideration for deprecation:
+
+- Legacy syntax compatibility mode (if added)
+- Certain error codes may be consolidated
+
+No immediate deprecations are planned for 3.x.
+
+## Upcoming Features
+
+### Roadmap
+
+**Language**
+- Enhanced generic support
+- Trait system
+- More built-in functions
+- Improved string handling
+
+**Compiler**
+- Incremental compilation
+- Better optimization passes
+- Parallel compilation
+- Enhanced error recovery
+
+**Tooling**
+- Integrated debugger
+- Profiler for circuit complexity
+- Package manager improvements
+- Better IDE integration
+
+**Standard Library**
+- Hash functions (Poseidon, SHA-256)
+- Signature verification utilities
+- Merkle tree operations
+- More cryptographic primitives
+
+<Info>
+Roadmap items are subject to change based on community feedback and priorities.
+</Info>
+
+## Release Schedule
+
+Leo follows a regular release schedule:
+
+- **Major versions** (X.0.0): As needed for breaking changes
+- **Minor versions** (3.X.0): Monthly with new features
+- **Patch versions** (3.4.X): As needed for bug fixes
+
+## Version Support
+
+| Version | Status | Support Until |
+|---------|--------|---------------|
+| 3.4.x | Current | Ongoing |
+| 3.3.x | Maintenance | 6 months after 3.4.0 |
+| 3.2.x | End of Life | No longer supported |
+| 3.1.x | End of Life | No longer supported |
+| 3.0.x | End of Life | No longer supported |
+| 2.x | End of Life | No longer supported |
+
+## How to Update
+
+### Using Leo CLI
+
+```bash
+leo update
+```
+
+### Using Cargo
+
+```bash
+cargo install leo-lang --force
+```
+
+### Verify Version
+
+```bash
+leo --version
+```
+
+Should output:
+```
+leo 3.4.0
+```
+
+## Staying Informed
+
+### Release Announcements
+
+Stay up to date with Leo releases:
+
+- **GitHub Releases**: https://github.com/ProvableHQ/leo/releases
+- **Discord**: [Aleo Discord](https://discord.gg/aleo) #announcements
+- **Twitter**: [@ProvableHQ](https://twitter.com/ProvableHQ)
+
+### Security Updates
+
+Critical security updates are announced via:
+- GitHub Security Advisories
+- Discord security channel
+- Direct email to maintainers
+
+Always update to the latest patch version for security fixes.
+
+## Contributing to Releases
+
+Help shape future Leo versions:
+
+1. **Feature Requests**: Open issues on GitHub
+2. **Bug Reports**: File detailed bug reports
+3. **Pull Requests**: Contribute code improvements
+4. **Testing**: Test beta releases and provide feedback
+
+See the [Contributing Guide](/resources/contributing) for more information.
+
+## Release Notes Archive
+
+For detailed release notes of all versions, see:
+
+- **GitHub Releases**: https://github.com/ProvableHQ/leo/releases
+- **CHANGELOG.md**: In the Leo repository
+
+## Version History Summary
+
+```
+v3.4.0 - 2026-03 - Current release
+v3.3.0 - 2025-12 - Finalizers and mappings
+v3.2.0 - 2025-09 - Vector and Optional types
+v3.1.0 - 2025-06 - Tuple destructuring
+v3.0.0 - 2025-03 - Major rewrite
+v2.0.0 - 2024-01 - Legacy version
+```
+
+<Note>
+Version dates are illustrative. Check GitHub releases for actual release dates.
+</Note>
+
+## Related Resources
+
+<CardGroup cols={2}>
+  <Card title="GitHub Releases" icon="github" href="https://github.com/ProvableHQ/leo/releases">
+    Official release notes
+  </Card>
+  <Card title="Contributing" icon="git-branch" href="/resources/contributing">
+    Help build Leo
+  </Card>
+  <Card title="Troubleshooting" icon="wrench" href="/resources/troubleshooting">
+    Common issues and solutions
+  </Card>
+  <Card title="Installation" icon="download" href="/installation">
+    Install the latest version
+  </Card>
+</CardGroup>

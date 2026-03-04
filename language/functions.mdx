@@ -1,0 +1,509 @@
+---
+title: Functions
+description: Learn about function declarations, parameters, return types, and visibility modifiers in Leo
+---
+
+## Function Declaration
+
+Functions are declared using the `fn` keyword:
+
+```leo
+fn function_name(param1: Type1, param2: Type2) -> ReturnType {
+    // Function body
+    return value;
+}
+```
+
+## Basic Functions
+
+### Simple Functions
+
+Functions with no parameters or return value:
+
+```leo
+fn initialize() {
+    // Initialization logic
+}
+
+fn new() -> Board {
+    return Board {
+        r1: Row { c1: 0u8, c2: 0u8, c3: 0u8 },
+        r2: Row { c1: 0u8, c2: 0u8, c3: 0u8 },
+        r3: Row { c1: 0u8, c2: 0u8, c3: 0u8 },
+    };
+}
+```
+
+### Functions with Parameters
+
+Functions accept typed parameters:
+
+```leo
+fn mint_private(receiver: address, amount: u64) -> token {
+    return token {
+        owner: receiver,
+        amount: amount,
+    };
+}
+
+fn check_for_win(b: Board, p: u8) -> bool {
+    return
+        (b.r1.c1 == p && b.r1.c2 == p && b.r1.c3 == p) || 
+        (b.r2.c1 == p && b.r2.c2 == p && b.r2.c3 == p);
+}
+```
+
+## Parameter Modes
+
+Leo supports different parameter visibility modes:
+
+### Private Parameters (Default)
+
+Parameters are private by default:
+
+```leo
+fn transfer_private(sender: token, receiver: address, amount: u64) 
+    -> (token, token) {
+    let difference: u64 = sender.amount - amount;
+    
+    let remaining: token = token {
+        owner: sender.owner,
+        amount: difference,
+    };
+    
+    let transferred: token = token {
+        owner: receiver,
+        amount: amount,
+    };
+    
+    return (remaining, transferred);
+}
+```
+
+### Public Parameters
+
+Mark parameters as `public` to expose them on-chain:
+
+```leo
+fn transfer_public(public receiver: address, public amount: u64) -> Final {
+    return final { finalize_transfer_public(self.caller, receiver, amount); };
+}
+
+fn mint_public(public receiver: address, public amount: u64) -> Final {
+    return final { finalize_mint_public(receiver, amount); };
+}
+```
+
+<Note>
+Public parameters are visible on the blockchain. Use them only for data that should be publicly accessible.
+</Note>
+
+## Return Types
+
+### Single Return Values
+
+Functions can return a single value:
+
+```leo
+fn get_balance() -> u64 {
+    return 1000u64;
+}
+
+fn create_board() -> Board {
+    return Board {
+        r1: Row { c1: 0u8, c2: 0u8, c3: 0u8 },
+        r2: Row { c1: 0u8, c2: 0u8, c3: 0u8 },
+        r3: Row { c1: 0u8, c2: 0u8, c3: 0u8 },
+    };
+}
+```
+
+### Multiple Return Values
+
+Return tuples for multiple values:
+
+```leo
+fn transfer_private(sender: token, receiver: address, amount: u64) 
+    -> (token, token) {
+    let remaining: token = token {
+        owner: sender.owner,
+        amount: sender.amount - amount,
+    };
+    
+    let transferred: token = token {
+        owner: receiver,
+        amount: amount,
+    };
+    
+    return (remaining, transferred);
+}
+
+fn make_move(player: u8, row: u8, col: u8, board: Board) -> (Board, u8) {
+    // Game logic...
+    return (updated_board, winner);
+}
+```
+
+### No Return Value
+
+Functions without a return type implicitly return `()`:
+
+```leo
+fn process() {
+    // No return statement needed
+}
+
+fn update_state() -> () {
+    // Explicit unit return
+    return ();
+}
+```
+
+## Function Types
+
+### Regular Functions
+
+Standard functions for off-chain computation:
+
+```leo
+fn calculate_total(price: u64, quantity: u32) -> u64 {
+    return price * (quantity as u64);
+}
+
+fn validate_input(value: u32, min: u32, max: u32) -> bool {
+    return value >= min && value <= max;
+}
+```
+
+### Entry Point Functions
+
+Functions that can be called from outside the program (transitions):
+
+```leo
+fn play() -> (Ticket, Final) {
+    let ticket: Ticket = Ticket {
+        owner: self.caller,
+    };
+    return (ticket, final { finalize_play() });
+}
+
+fn transfer_public(public receiver: address, public amount: u64) -> Final {
+    return final { finalize_transfer_public(self.caller, receiver, amount); };
+}
+```
+
+<Note>
+Entry point functions are defined at the program scope level and can return `Final` to trigger on-chain state changes.
+</Note>
+
+### Finalize Functions
+
+Functions that execute on-chain and can modify mappings:
+
+```leo
+final fn finalize_mint_public(public receiver: address, public amount: u64) {
+    let current_amount: u64 = Mapping::get_or_use(account, receiver, 0u64);
+    Mapping::set(account, receiver, current_amount + amount);
+}
+
+final fn finalize_transfer_public(
+    public sender: address,
+    public receiver: address, 
+    public amount: u64
+) {
+    let sender_amount: u64 = Mapping::get_or_use(account, sender, 0u64);
+    Mapping::set(account, sender, sender_amount - amount);
+    
+    let receiver_amount: u64 = Mapping::get_or_use(account, receiver, 0u64);
+    Mapping::set(account, receiver, receiver_amount + amount);
+}
+```
+
+See [Finalize](/language/finalize) for detailed information about on-chain functions.
+
+## Special Variables
+
+### self.caller
+
+Access the caller's address within functions:
+
+```leo
+fn play() -> (Ticket, Final) {
+    let ticket: Ticket = Ticket {
+        owner: self.caller,  // Address of the caller
+    };
+    return (ticket, final { finalize_play() });
+}
+
+fn transfer_public(public receiver: address, public amount: u64) -> Final {
+    return final { finalize_transfer_public(self.caller, receiver, amount); };
+}
+```
+
+## Function Composition
+
+### Calling Functions
+
+Functions can call other functions:
+
+```leo
+fn check_for_win(b: Board, p: u8) -> bool {
+    return
+        (b.r1.c1 == p && b.r1.c2 == p && b.r1.c3 == p) ||
+        (b.r2.c1 == p && b.r2.c2 == p && b.r2.c3 == p);
+}
+
+fn make_move(player: u8, row: u8, col: u8, board: Board) -> (Board, u8) {
+    // ... update board logic
+    
+    if check_for_win(updated, 1u8) {
+        return (updated, 1u8);
+    } else if check_for_win(updated, 2u8) {
+        return (updated, 2u8);
+    } else {
+        return (updated, 0u8);
+    }
+}
+```
+
+### Helper Functions
+
+Create helper functions for reusable logic:
+
+```leo
+fn calculate_fee(amount: u64, rate: u64) -> u64 {
+    return (amount * rate) / 10000u64;
+}
+
+fn apply_fee(amount: u64) -> u64 {
+    let fee: u64 = calculate_fee(amount, 100u64);  // 1% fee
+    return amount - fee;
+}
+```
+
+## Function Documentation
+
+Document functions with comments:
+
+```leo
+// Returns an updated tic tac toe board with a move made by a player.
+// Returns a `u8` corresponding to the player who won the game, or 0 if no one has won yet.
+// - `player` : A number corresponding to a player.
+// - `row`    : The row of the move.
+// - `col`    : The column of the move.
+// - `board`  : A tic tac toe board.
+// Assumes that `player` is either 1 or 2.
+// Assumes that `row` and `col` are valid indices into the board.
+fn make_move(player: u8, row: u8, col: u8, board: Board) -> (Board, u8) {
+    // Implementation
+}
+```
+
+## Best Practices
+
+### 1. Single Responsibility
+
+Each function should have one clear purpose:
+
+```leo
+// Good: Single purpose
+fn validate_amount(amount: u64, max: u64) -> bool {
+    return amount > 0u64 && amount <= max;
+}
+
+fn transfer_tokens(sender: token, receiver: address, amount: u64) -> (token, token) {
+    // Transfer logic only
+}
+
+// Avoid: Multiple responsibilities
+fn validate_and_transfer() {
+    // Doing too much
+}
+```
+
+### 2. Descriptive Names
+
+Use clear, descriptive function names:
+
+```leo
+// Good: Clear intent
+fn mint_public()
+fn transfer_private()
+fn check_for_win()
+
+// Avoid: Unclear names
+fn do_stuff()
+fn process()
+fn handle()
+```
+
+### 3. Validate Inputs
+
+Check preconditions at the start of functions:
+
+```leo
+fn make_move(player: u8, row: u8, col: u8, board: Board) -> (Board, u8) {
+    // Validate inputs first
+    assert(player == 1u8 || player == 2u8);
+    assert(1u8 <= row && row <= 3u8);
+    assert(1u8 <= col && col <= 3u8);
+    
+    // Main logic
+    // ...
+}
+```
+
+### 4. Small, Focused Functions
+
+Break complex logic into smaller functions:
+
+```leo
+// Good: Broken into steps
+fn validate_player(player: u8) {
+    assert(player == 1u8 || player == 2u8);
+}
+
+fn validate_position(row: u8, col: u8) {
+    assert(1u8 <= row && row <= 3u8);
+    assert(1u8 <= col && col <= 3u8);
+}
+
+fn make_move(player: u8, row: u8, col: u8, board: Board) -> (Board, u8) {
+    validate_player(player);
+    validate_position(row, col);
+    // Make move
+}
+```
+
+### 5. Consistent Parameter Order
+
+Use consistent parameter ordering:
+
+```leo
+// Good: Consistent order (actor, target, amount)
+fn transfer_public(public receiver: address, public amount: u64)
+fn mint_public(public receiver: address, public amount: u64)
+```
+
+## Common Patterns
+
+### Factory Functions
+
+Create instances of types:
+
+```leo
+fn create_token(owner: address, amount: u64) -> token {
+    return token {
+        owner: owner,
+        amount: amount,
+    };
+}
+
+fn create_empty_board() -> Board {
+    return Board {
+        r1: Row { c1: 0u8, c2: 0u8, c3: 0u8 },
+        r2: Row { c1: 0u8, c2: 0u8, c3: 0u8 },
+        r3: Row { c1: 0u8, c2: 0u8, c3: 0u8 },
+    };
+}
+```
+
+### Predicate Functions
+
+Return boolean conditions:
+
+```leo
+fn is_valid_move(row: u8, col: u8, cell: u8) -> bool {
+    return 1u8 <= row && row <= 3u8 && 
+           1u8 <= col && col <= 3u8 && 
+           cell == 0u8;
+}
+
+fn has_sufficient_balance(balance: u64, amount: u64) -> bool {
+    return balance >= amount;
+}
+```
+
+### Transform Functions
+
+Transform data from one form to another:
+
+```leo
+fn split_token(token: token, amount: u64) -> (token, token) {
+    let remaining: token = token {
+        owner: token.owner,
+        amount: token.amount - amount,
+    };
+    
+    let new_token: token = token {
+        owner: token.owner,
+        amount: amount,
+    };
+    
+    return (remaining, new_token);
+}
+```
+
+### Builder Pattern
+
+Build complex structures step by step:
+
+```leo
+fn build_row(c1: u8, c2: u8, c3: u8) -> Row {
+    return Row { c1: c1, c2: c2, c3: c3 };
+}
+
+fn build_board(r1: Row, r2: Row, r3: Row) -> Board {
+    return Board { r1: r1, r2: r2, r3: r3 };
+}
+```
+
+## Finalize Pattern
+
+Combine off-chain and on-chain computation:
+
+```leo
+// Off-chain: Create records and prepare data
+fn transfer_private_to_public(
+    sender: token, 
+    public receiver: address, 
+    public amount: u64
+) -> (token, Final) {
+    let difference: u64 = sender.amount - amount;
+    
+    let remaining: token = token {
+        owner: sender.owner,
+        amount: difference,
+    };
+    
+    return (remaining, final { 
+        finalize_transfer_private_to_public(receiver, amount) 
+    });
+}
+
+// On-chain: Update public state
+final fn finalize_transfer_private_to_public(
+    public receiver: address, 
+    public amount: u64
+) {
+    let current_amount: u64 = Mapping::get_or_use(account, receiver, 0u64);
+    Mapping::set(account, receiver, current_amount + amount);
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Finalize" icon="flag-checkered" href="/language/finalize">
+    On-chain computation
+  </Card>
+  <Card title="Records" icon="rectangle-list" href="/language/records">
+    Work with private records
+  </Card>
+  <Card title="Statements" icon="brackets-curly" href="/language/statements">
+    Control flow in functions
+  </Card>
+  <Card title="Operators" icon="code" href="/language/operators">
+    Use operators in functions
+  </Card>
+</CardGroup>

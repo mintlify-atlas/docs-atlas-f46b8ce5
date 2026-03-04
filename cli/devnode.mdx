@@ -1,0 +1,432 @@
+---
+title: leo devnode
+description: Run a single-node local development server with instant block creation
+---
+
+The `leo devnode` command runs a single-node local development server with instant block creation, ideal for rapid testing and iteration.
+
+## Syntax
+
+```bash
+leo devnode <SUBCOMMAND> [OPTIONS]
+```
+
+## Subcommands
+
+### start
+
+Start the devnode server.
+
+```bash
+leo devnode start [OPTIONS]
+```
+
+### advance
+
+Advance the ledger by a specified number of blocks.
+
+```bash
+leo devnode advance [OPTIONS]
+```
+
+## Start Options
+
+<ParamField path="--private-key" type="string">
+  Private key to use for the devnode. Defaults to test private key.
+  
+  <Warning>
+    Default test key: `APrivateKey1zkp8CZNn3yeCseEtxuVPbDCwSyhGW6yZKUYKfgXmcpoGPWH` is for development only.
+  </Warning>
+</ParamField>
+
+<ParamField path="--network" type="string" default="testnet">
+  Network type: `mainnet`, `testnet`, or `canary`.
+</ParamField>
+
+<ParamField path="--endpoint" type="string">
+  Endpoint override (for configuration purposes).
+</ParamField>
+
+## Advance Options
+
+<ParamField path="--blocks" type="number" required>
+  Number of blocks to advance.
+</ParamField>
+
+<ParamField path="--endpoint" type="string" default="http://localhost:3030">
+  Devnode endpoint URL.
+</ParamField>
+
+## Examples
+
+### Start Devnode
+
+```bash
+leo devnode start
+```
+
+Output:
+```
+🚀 Starting Devnode...
+✅ Devnode running at http://localhost:3030
+   Network: testnet
+   Address: aleo1...
+   Press Ctrl+C to stop.
+```
+
+The devnode:
+- Listens on `http://localhost:3030`
+- Creates blocks instantly on transaction receipt
+- Maintains in-memory ledger state
+- Provides REST API compatible with snarkOS
+
+### Start with Custom Private Key
+
+```bash
+leo devnode start --private-key APrivateKey1zkp...
+```
+
+### Advance Blocks
+
+In a separate terminal:
+
+```bash
+leo devnode advance --blocks 10
+```
+
+Output:
+```
+⏩ Advancing 10 blocks...
+✅ Advanced to block 10
+```
+
+This creates 10 empty blocks, useful for:
+- Testing time-dependent logic
+- Advancing past block height thresholds
+- Simulating network progression
+
+### Advance Custom Number of Blocks
+
+```bash
+leo devnode advance --blocks 100
+```
+
+## Using the Devnode
+
+Once running, interact with it like any Aleo node:
+
+### Deploy Programs
+
+```bash
+leo deploy \
+  --broadcast \
+  --devnet \
+  --endpoint http://localhost:3030 \
+  --private-key APrivateKey1zkp8CZNn3yeCseEtxuVPbDCwSyhGW6yZKUYKfgXmcpoGPWH
+```
+
+The devnode instantly creates a block with the deployment.
+
+### Execute Transactions
+
+```bash
+leo execute main 1u32 2u32 \
+  --broadcast \
+  --devnet \
+  --endpoint http://localhost:3030 \
+  --private-key APrivateKey1zkp8CZNn3yeCseEtxuVPbDCwSyhGW6yZKUYKfgXmcpoGPWH
+```
+
+The devnode instantly creates a block with the execution.
+
+### Query State
+
+```bash
+leo query block latest \
+  --endpoint http://localhost:3030 \
+  --network testnet
+```
+
+## REST API
+
+The devnode provides a REST API compatible with snarkOS:
+
+### Get Latest Block
+
+```bash
+curl http://localhost:3030/testnet/latest/block
+```
+
+### Get Latest Height
+
+```bash
+curl http://localhost:3030/testnet/latest/height
+```
+
+Response:
+```
+42
+```
+
+### Get Block by Height
+
+```bash
+curl http://localhost:3030/testnet/block/10
+```
+
+### Get State Root
+
+```bash
+curl http://localhost:3030/testnet/latest/stateRoot
+```
+
+### Get Program
+
+```bash
+curl http://localhost:3030/testnet/program/hello_world.aleo
+```
+
+### Broadcast Transaction
+
+```bash
+curl -X POST http://localhost:3030/testnet/transaction/broadcast \
+  -H "Content-Type: application/json" \
+  -d @transaction.json
+```
+
+## Devnode vs Devnet
+
+| Feature | Devnode | Devnet |
+|---------|---------|--------|
+| **Nodes** | Single node | Multiple validators + clients |
+| **Block Creation** | Instant | Consensus (slower) |
+| **Consensus** | None | Full BFT |
+| **Startup Time** | Fast | Slower |
+| **Resource Usage** | Low | Higher |
+| **Realism** | Less realistic | More realistic |
+| **Use Case** | Rapid iteration | Integration testing |
+
+<Info>
+  Use `leo devnode` for rapid development and iteration. Use [`leo devnet`](/cli/devnet) for more realistic testing.
+</Info>
+
+## Block Creation Behavior
+
+The devnode creates blocks instantly when:
+
+1. A transaction is broadcast
+2. `leo devnode advance` is called
+
+```
+Transaction → Devnode → Instant Block
+```
+
+No waiting for consensus or block time.
+
+## State Persistence
+
+The devnode maintains state **only in memory**:
+
+- State is lost when the devnode stops
+- No persistence to disk
+- Fast startup with clean state
+
+<Note>
+  For persistent storage, use [`leo devnet`](/cli/devnet) instead.
+</Note>
+
+## Default Configuration
+
+The devnode uses:
+
+```
+Endpoint:    http://localhost:3030
+Network:     testnet
+Private Key: APrivateKey1zkp8CZNn3yeCseEtxuVPbDCwSyhGW6yZKUYKfgXmcpoGPWH
+Address:     aleo1rhgdu77hgyqd3xjj8ucu3jj9r2krwz6mnzyd80gncr5fxcwlh5rsvzp9px
+```
+
+<Warning>
+  Never use the default devnode private key on mainnet or testnet.
+</Warning>
+
+## Development Workflow
+
+Typical workflow with devnode:
+
+```bash
+# Terminal 1: Start devnode
+leo devnode start
+
+# Terminal 2: Develop and test
+cd my_project
+leo build
+leo deploy --broadcast --devnet --endpoint http://localhost:3030
+leo execute main 1u32 2u32 --broadcast --devnet --endpoint http://localhost:3030
+
+# Make changes, rebuild, redeploy
+vim src/main.leo
+leo build
+leo deploy --broadcast --devnet --endpoint http://localhost:3030
+
+# Advance time if needed
+leo devnode advance --blocks 100
+```
+
+## Environment Variables
+
+Configure devnode via `.env`:
+
+```bash
+PRIVATE_KEY=APrivateKey1zkp...
+NETWORK=testnet
+ENDPOINT=http://localhost:3030
+DEVNET=true
+```
+
+Then simply:
+
+```bash
+leo devnode start
+leo deploy --broadcast
+leo execute main 1u32 2u32 --broadcast
+```
+
+## Logging
+
+Devnode logs to stdout:
+
+```
+[2026-03-04 15:30:00] Starting Devnode on port 3030
+[2026-03-04 15:30:00] Genesis block created
+[2026-03-04 15:30:01] REST API listening on http://localhost:3030
+[2026-03-04 15:30:05] Received transaction at1abc...
+[2026-03-04 15:30:05] Created block 1
+```
+
+For verbose logging:
+
+```bash
+RUST_LOG=debug leo devnode start
+```
+
+## Stopping the Devnode
+
+Press `Ctrl+C` to stop:
+
+```bash
+^C
+🛑 Shutting down Devnode...
+✅ Devnode stopped.
+```
+
+## Troubleshooting
+
+### Port Already in Use
+
+```
+Failed to bind to address: Address already in use
+```
+
+Solutions:
+1. Stop existing devnode
+2. Kill process using port 3030:
+   ```bash
+   lsof -ti:3030 | xargs kill -9
+   ```
+
+### Transaction Not Confirmed
+
+If a transaction doesn't confirm:
+
+1. Check devnode is running
+2. Verify endpoint is `http://localhost:3030`
+3. Check devnode logs for errors
+4. Ensure transaction is valid
+
+### State Mismatch
+
+If state is inconsistent:
+
+1. Restart devnode (clears state)
+2. Redeploy programs
+3. Re-execute transactions
+
+## Advanced Usage
+
+### Custom REST Endpoints
+
+The devnode supports standard Aleo REST endpoints:
+
+```bash
+# Get account balance
+curl http://localhost:3030/testnet/program/credits.aleo/mapping/account/aleo1.../balance
+
+# Get transaction
+curl http://localhost:3030/testnet/transaction/at1...
+
+# Get program mappings
+curl http://localhost:3030/testnet/program/my_program.aleo/mappings
+```
+
+### Programmatic Interaction
+
+Interact programmatically via HTTP:
+
+```javascript
+const fetch = require('node-fetch');
+
+// Get latest height
+const height = await fetch('http://localhost:3030/testnet/latest/height')
+  .then(r => r.text());
+
+console.log('Current height:', height);
+
+// Advance blocks
+await fetch('http://localhost:3030/testnet/devnode/advance', {
+  method: 'POST',
+  body: JSON.stringify({ blocks: 10 }),
+  headers: { 'Content-Type': 'application/json' }
+});
+```
+
+## Testing Strategies
+
+### Unit Testing
+
+Use `leo test` for unit tests:
+
+```bash
+leo test
+```
+
+### Integration Testing
+
+Use devnode for integration tests:
+
+```bash
+# Start devnode
+leo devnode start &
+DEVNODE_PID=$!
+
+# Run integration tests
+./run-integration-tests.sh
+
+# Stop devnode
+kill $DEVNODE_PID
+```
+
+### End-to-End Testing
+
+Use devnet for E2E tests:
+
+```bash
+leo devnet --num-validators 4
+# Run E2E tests
+```
+
+## Next Steps
+
+- [Deploy to devnode](/cli/deploy)
+- [Execute on devnode](/cli/execute)
+- [Use full devnet](/cli/devnet)

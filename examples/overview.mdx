@@ -1,0 +1,247 @@
+---
+title: 'Example Programs'
+description: 'Overview of example Leo programs demonstrating key language features'
+---
+
+## Overview
+
+Leo includes several complete example programs that demonstrate real-world use cases and language features. These examples are actively maintained and tested in the Leo continuous integration pipeline.
+
+## Available Examples
+
+<CardGroup cols={3}>
+  <Card title="Token" icon="coins" href="/examples/token">
+    Transparent and shielded custom token with public and private transfers
+  </Card>
+  <Card title="Tic-Tac-Toe" icon="grid" href="/examples/tictactoe">
+    Two-player game demonstrating structs and conditional logic
+  </Card>
+  <Card title="Lottery" icon="ticket" href="/examples/lottery">
+    Random winner selection using ChaCha RNG and block height checks
+  </Card>
+</CardGroup>
+
+## Example Categories
+
+### Financial Applications
+
+The **Token** example demonstrates how to build financial primitives:
+
+- Public and private balance tracking
+- Minting and burning tokens
+- Transfer functionality
+- Mapping for on-chain state
+- Record-based private state
+
+**Use Cases:**
+- Cryptocurrencies
+- Stablecoins
+- Reward tokens
+- NFT implementations
+
+### Game Logic
+
+The **Tic-Tac-Toe** example shows how to implement game rules:
+
+- State representation with structs
+- Turn-based logic
+- Win condition checking
+- Input validation
+- Early termination
+
+**Use Cases:**
+- On-chain games
+- Voting systems
+- State machines
+- Multi-party protocols
+
+### Randomness and Time-based Logic
+
+The **Lottery** example demonstrates:
+
+- Cryptographically secure randomness
+- Block height-based expiration
+- Winner selection
+- Finalizer constraints
+
+**Use Cases:**
+- Lotteries
+- Random selection
+- Time-locked contracts
+- Auctions
+
+## Key Language Features Demonstrated
+
+### Records
+
+Private data structures used in Token and Lottery:
+
+```leo
+record Token {
+    owner: address,
+    amount: u64,
+}
+```
+
+**Learn more:** [Token Example](/examples/token)
+
+### Structs
+
+Composite data types used in Tic-Tac-Toe:
+
+```leo
+struct Board {
+    r1: Row,
+    r2: Row,
+    r3: Row,
+}
+```
+
+**Learn more:** [Tic-Tac-Toe Example](/examples/tictactoe)
+
+### Mappings
+
+On-chain storage used in Token:
+
+```leo
+mapping account: address => u64;
+```
+
+**Learn more:** [Token Example](/examples/token)
+
+### Finalizers
+
+On-chain computation used in all examples:
+
+```leo
+fn transfer_public(public receiver: address, public amount: u64) -> Final {
+    return final { finalize_transfer(self.caller, receiver, amount); };
+}
+```
+
+**Learn more:** [Token Example](/examples/token)
+
+### Assertions
+
+Input validation and constraints:
+
+```leo
+assert(player == 1u8 || player == 2u8);
+assert(block.height <= 1000u32);
+```
+
+**Learn more:** [Lottery Example](/examples/lottery)
+
+### Randomness
+
+Cryptographically secure random number generation:
+
+```leo
+let is_winner: bool = ChaCha::rand_bool();
+```
+
+**Learn more:** [Lottery Example](/examples/lottery)
+
+## Running the Examples
+
+All examples are located in the Leo repository at `.circleci/`:
+
+```bash
+# Clone the Leo repository
+git clone https://github.com/ProvableHQ/leo
+cd leo/.circleci/token
+
+# Run the token example
+leo build
+leo run mint_public
+```
+
+### Using the Leo CLI
+
+Each example includes a `run.sh` script for easy execution:
+
+```bash
+./run.sh
+```
+
+This script demonstrates typical usage patterns and function calls.
+
+## Testing Examples
+
+Examples are tested automatically in CI:
+
+```bash
+# Run example tests
+cd leo
+./.circleci/test-examples.sh
+```
+
+## Example Structure
+
+Each example follows a consistent structure:
+
+```
+example/
+├── src/
+│   └── main.leo          # Main program source
+├── inputs/
+│   └── example.in        # Input files for testing
+├── README.md             # Example documentation
+├── run.sh                # Demo script
+└── program.json          # Project manifest
+```
+
+## Building Your Own Application
+
+Use these examples as starting points:
+
+1. **Choose a similar example**: Pick the example closest to your use case
+2. **Copy the structure**: Use `leo new` to create a new project
+3. **Adapt the code**: Modify the example to fit your requirements
+4. **Test thoroughly**: Write comprehensive tests
+5. **Deploy**: Use `leo deploy` when ready
+
+## Example Complexity
+
+| Example | Lines of Code | Difficulty | Key Features |
+|---------|---------------|------------|-------------|
+| Lottery | ~30 | Beginner | Randomness, block height |
+| Tic-Tac-Toe | ~110 | Intermediate | Structs, conditionals, helpers |
+| Token | ~130 | Advanced | Records, mappings, finalizers |
+
+## Learning Path
+
+We recommend studying the examples in this order:
+
+1. **Lottery**: Start here to learn basic finalizers and randomness
+2. **Tic-Tac-Toe**: Progress to structs and complex logic
+3. **Token**: Master records, mappings, and complete applications
+
+## Additional Resources
+
+<CardGroup cols={2}>
+  <Card title="Leo Tutorial" icon="book-open" href="/quickstart">
+    Step-by-step guide to Leo programming
+  </Card>
+  <Card title="Language Reference" icon="code" href="/reference/grammar">
+    Complete syntax reference
+  </Card>
+  <Card title="Built-in Types" icon="shapes" href="/reference/built-in-types">
+    Type system documentation
+  </Card>
+  <Card title="Standard Library" icon="toolbox" href="/reference/standard-library">
+    Built-in functions and utilities
+  </Card>
+</CardGroup>
+
+## Community Examples
+
+For more examples from the community:
+
+- [Aleo Developer Hub](https://developer.aleo.org)
+- [Leo GitHub Discussions](https://github.com/ProvableHQ/leo/discussions)
+- [Aleo Discord Community](https://discord.gg/aleo)
+
+## Contributing Examples
+
+Want to contribute an example? See our [Contributing Guide](/resources/contributing) for guidelines on submitting examples to the Leo repository.

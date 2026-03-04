@@ -1,97 +1,317 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: Leo Documentation
+description: Build formally verified, zero-knowledge applications on Aleo
+mode: custom
 ---
 
-## Setting up
+<div className="relative overflow-hidden bg-gradient-to-br from-[#0f1117] via-[#1a1d27] to-[#0f1117] dark:from-[#0f1117] dark:via-[#1a1d27] dark:to-[#0f1117] py-20">
+  <div className="max-w-6xl mx-auto px-6">
+    <div className="grid lg:grid-cols-12 gap-8 items-center">
+      <div className="lg:col-span-7">
+        <h1 className="text-5xl sm:text-6xl font-bold text-white mb-6">
+          The Leo Programming Language
+        </h1>
+        <p className="text-xl text-gray-300 mb-8 max-w-2xl">
+          Write formally verified, zero-knowledge applications with a statically-typed language that compiles to Aleo bytecode. Build privacy-preserving dApps with the power of zk-SNARKs.
+        </p>
+        <div className="flex flex-wrap gap-4">
+          <a
+            href="/quickstart"
+            className="inline-flex items-center px-6 py-3 rounded-lg bg-[#848484] text-white font-semibold hover:bg-[#6b6b6b] transition-colors no-underline"
+          >
+            Get Started
+            <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </a>
+          <a
+            href="/language/overview"
+            className="inline-flex items-center px-6 py-3 rounded-lg border border-white/30 bg-white/10 text-white font-semibold hover:bg-white/20 hover:border-white/50 transition-colors no-underline"
+          >
+            Explore the Language
+          </a>
+        </div>
+      </div>
+      <div className="lg:col-span-5 hidden lg:block">
+        <div className="relative">
+          <div className="absolute inset-0 bg-gradient-to-r from-[#848484]/20 to-transparent rounded-2xl blur-3xl"></div>
+          <pre className="relative bg-[#1a1d27]/80 border border-[#27272a] rounded-xl p-6 text-sm overflow-hidden backdrop-blur-sm">
+            <code className="text-gray-300">
+{`program token.aleo {
+    record token {
+        owner: address,
+        amount: u64,
+    }
 
-Get your documentation site up and running in minutes.
+    fn mint(
+        receiver: address,
+        amount: u64
+    ) -> token {
+        return token {
+            owner: receiver,
+            amount: amount,
+        };
+    }
+}`}
+            </code>
+          </pre>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <div className="text-center mb-12">
+    <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
+      Quick start
+    </h2>
+    <p className="text-lg text-gray-600 dark:text-gray-400">
+      Get up and running with Leo in minutes
+    </p>
+  </div>
 
-## Make it yours
+  <Steps>
+    <Step title="Install Leo">
+      Install Leo using cargo or download the prebuilt binary:
+      
+      ```bash
+      cargo install leo-lang
+      ```
+      
+      Verify the installation:
+      
+      ```bash
+      leo --version
+      ```
+    </Step>
 
-Design a docs site that looks great and empowers your users.
+    <Step title="Create a new project">
+      Use the Leo CLI to scaffold a new project:
+      
+      ```bash
+      leo new helloworld
+      cd helloworld
+      ```
+      
+      This creates a new Leo project with a basic program structure and configuration.
+    </Step>
 
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
-  </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
-  </Card>
+    <Step title="Build and run your program">
+      Compile and execute your Leo program locally:
+      
+      ```bash
+      leo run main 1u32 2u32
+      ```
+      
+      Leo will compile your program to Aleo bytecode and execute it with the provided inputs. You'll see the execution results in your terminal.
+    </Step>
+
+    <Step title="Deploy to the network">
+      When you're ready, deploy your program to the Aleo network:
+      
+      ```bash
+      leo deploy
+      ```
+      
+      Your program will be deployed to the blockchain, making it available for on-chain execution.
+    </Step>
+  </Steps>
+</div>
+
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <div className="text-center mb-12">
+    <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
+      Explore by topic
+    </h2>
+    <p className="text-lg text-gray-600 dark:text-gray-400">
+      Deep dive into Leo's features and capabilities
+    </p>
+  </div>
+
+  <CardGroup cols={3}>
     <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
-  </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
-  </Card>
-</Columns>
+      title="Leo Language"
+      icon="code"
+      href="/language/overview"
+    >
+      Learn about Leo's syntax, types, operators, and control flow
+    </Card>
+    <Card
+      title="CLI Commands"
+      icon="terminal"
+      href="/cli/overview"
+    >
+      Master the Leo CLI for building, testing, and deploying programs
+    </Card>
+    <Card
+      title="Records & Storage"
+      icon="database"
+      href="/language/records"
+    >
+      Understand records, mappings, and on-chain storage patterns
+    </Card>
+    <Card
+      title="Testing"
+      icon="flask"
+      href="/development/testing"
+    >
+      Write unit and integration tests for your Leo programs
+    </Card>
+    <Card
+      title="Compiler Architecture"
+      icon="microchip"
+      href="/advanced/compiler-architecture"
+    >
+      Explore how Leo compiles to Aleo bytecode and ZK circuits
+    </Card>
+    <Card
+      title="Examples"
+      icon="book-open"
+      href="/examples/overview"
+    >
+      Learn from real-world Leo program examples
+    </Card>
+  </CardGroup>
+</div>
 
-## Create beautiful pages
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <div className="text-center mb-12">
+    <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
+      Key features
+    </h2>
+  </div>
 
-Everything you need to create world-class documentation.
+  <div className="grid md:grid-cols-2 gap-6">
+    <div className="p-6 rounded-xl border border-gray-200 dark:border-[#27272a] bg-white dark:bg-[#1a1d27]">
+      <div className="flex items-start gap-4">
+        <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-[#848484]/10 dark:bg-[#848484]/20 flex items-center justify-center">
+          <svg className="w-5 h-5 text-[#848484]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+          </svg>
+        </div>
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+            Formally verified programs
+          </h3>
+          <p className="text-gray-600 dark:text-gray-400">
+            Leo compiles to zero-knowledge circuits, ensuring your programs are cryptographically sound and verifiable.
+          </p>
+        </div>
+      </div>
+    </div>
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
-  </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
-  </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
-  </Card>
-</Columns>
+    <div className="p-6 rounded-xl border border-gray-200 dark:border-[#27272a] bg-white dark:bg-[#1a1d27]">
+      <div className="flex items-start gap-4">
+        <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-[#848484]/10 dark:bg-[#848484]/20 flex items-center justify-center">
+          <svg className="w-5 h-5 text-[#848484]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+          </svg>
+        </div>
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+            Privacy by default
+          </h3>
+          <p className="text-gray-600 dark:text-gray-400">
+            Build applications with private state and selective disclosure using records and finalize blocks.
+          </p>
+        </div>
+      </div>
+    </div>
 
-## Need inspiration?
+    <div className="p-6 rounded-xl border border-gray-200 dark:border-[#27272a] bg-white dark:bg-[#1a1d27]">
+      <div className="flex items-start gap-4">
+        <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-[#848484]/10 dark:bg-[#848484]/20 flex items-center justify-center">
+          <svg className="w-5 h-5 text-[#848484]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+          </svg>
+        </div>
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+            Familiar syntax
+          </h3>
+          <p className="text-gray-600 dark:text-gray-400">
+            Leo's syntax draws from Rust, JavaScript, and Scala, making it accessible for developers from various backgrounds.
+          </p>
+        </div>
+      </div>
+    </div>
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+    <div className="p-6 rounded-xl border border-gray-200 dark:border-[#27272a] bg-white dark:bg-[#1a1d27]">
+      <div className="flex items-start gap-4">
+        <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-[#848484]/10 dark:bg-[#848484]/20 flex items-center justify-center">
+          <svg className="w-5 h-5 text-[#848484]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+        </div>
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+            Complete toolchain
+          </h3>
+          <p className="text-gray-600 dark:text-gray-400">
+            From project scaffolding to deployment, Leo provides all the tools you need for the full development lifecycle.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <div className="text-center mb-12">
+    <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
+      Resources
+    </h2>
+  </div>
+
+  <CardGroup cols={2}>
+    <Card
+      title="Join the community"
+      icon="discord"
+      href="https://discord.gg/aleo"
+    >
+      Get help, share your projects, and connect with other Leo developers
+    </Card>
+    <Card
+      title="Contribute to Leo"
+      icon="github"
+      href="/resources/contributing"
+    >
+      Learn how to contribute to the Leo language and compiler
+    </Card>
+    <Card
+      title="Troubleshooting"
+      icon="circle-question"
+      href="/resources/troubleshooting"
+    >
+      Find solutions to common issues and error messages
+    </Card>
+    <Card
+      title="ABNF Grammar"
+      icon="file-code"
+      href="https://github.com/ProvableHQ/grammars/blob/master/leo.abnf"
+    >
+      View the formal grammar specification for the Leo language
+    </Card>
+  </CardGroup>
+</div>
+
+<div className="mt-20 mb-16 max-w-5xl mx-auto px-6">
+  <div className="rounded-2xl bg-gradient-to-br from-[#848484]/10 to-[#6b6b6b]/5 dark:from-[#848484]/20 dark:to-[#6b6b6b]/10 border border-gray-200 dark:border-[#27272a] p-8 md:p-12 text-center">
+    <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
+      Ready to build on Aleo?
+    </h2>
+    <p className="text-lg text-gray-600 dark:text-gray-400 mb-8 max-w-2xl mx-auto">
+      Start building privacy-preserving applications with Leo today. Follow our quickstart guide to create your first zero-knowledge program.
+    </p>
+    <a
+      href="/quickstart"
+      className="inline-flex items-center px-8 py-3 rounded-lg bg-[#848484] text-white font-semibold hover:bg-[#6b6b6b] transition-colors no-underline"
+    >
+      Get Started
+      <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+      </svg>
+    </a>
+  </div>
+</div>

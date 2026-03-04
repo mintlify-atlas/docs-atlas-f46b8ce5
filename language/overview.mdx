@@ -1,0 +1,173 @@
+---
+title: Leo Language Overview
+description: Introduction to Leo, a statically-typed programming language for zero-knowledge applications on Aleo
+---
+
+## What is Leo?
+
+Leo is a statically-typed programming language built for writing private applications on the Aleo blockchain. It compiles to Aleo instructions and enables developers to write zero-knowledge proofs with a familiar, high-level syntax.
+
+## Design Philosophy
+
+Leo is designed with several core principles:
+
+### Zero-Knowledge First
+
+Leo is purpose-built for zero-knowledge applications. Every Leo program compiles to zero-knowledge proofs, allowing you to prove computation without revealing private data.
+
+```leo
+fn transfer_private(sender: token, receiver: address, amount: u64) -> (token, token) {
+    let difference: u64 = sender.amount - amount;
+    
+    let remaining: token = token {
+        owner: sender.owner,
+        amount: difference,
+    };
+    
+    let transferred: token = token {
+        owner: receiver,
+        amount: amount,
+    };
+    
+    return (remaining, transferred);
+}
+```
+
+### Type Safety
+
+Leo is statically typed with strong type checking. All types are checked at compile time, preventing runtime errors and ensuring program correctness.
+
+```leo
+let balance: u64 = 100u64;  // Explicit type annotation
+let price = 50u64;          // Type inference
+```
+
+### Privacy by Default
+
+Leo distinguishes between private and public data using visibility modifiers. Data is private unless explicitly marked as public.
+
+```leo
+fn mint_public(public receiver: address, public amount: u64) -> Final {
+    return final { finalize_mint_public(receiver, amount); };
+}
+```
+
+### On-Chain and Off-Chain Computation
+
+Leo separates off-chain (private) computation from on-chain (public) state changes using the finalize pattern.
+
+```leo
+fn play() -> (Ticket, Final) {
+    let ticket: Ticket = Ticket {
+        owner: self.caller,
+    };
+    return (ticket, final { finalize_play() });
+}
+```
+
+## Language Features
+
+### Primitive Types
+
+Leo supports a rich set of primitive types:
+- **Integers**: `u8`, `u16`, `u32`, `u64`, `u128`, `i8`, `i16`, `i32`, `i64`, `i128`
+- **Field Elements**: `field` (for cryptographic operations)
+- **Group Elements**: `group` (elliptic curve points)
+- **Scalars**: `scalar` (for cryptographic operations)
+- **Addresses**: `address` (Aleo account addresses)
+- **Booleans**: `bool`
+- **Signatures**: `signature` (cryptographic signatures)
+
+### Composite Types
+
+Leo supports structured data through records and structs:
+
+```leo
+record token {
+    owner: address,
+    amount: u64,
+}
+
+struct Board {
+    r1: Row,
+    r2: Row,
+    r3: Row,
+}
+```
+
+### On-Chain Storage
+
+Leo provides mappings for persistent on-chain storage:
+
+```leo
+mapping account: address => u64;
+```
+
+### Control Flow
+
+Leo supports standard control flow with conditionals and loops:
+
+```leo
+if row == 1u8 && col == 1u8 && r1c1 == 0u8 {
+    r1c1 = player;
+} else if row == 1u8 && col == 2u8 && r1c2 == 0u8 {
+    r1c2 = player;
+}
+
+for i: u32 in 0u32..10u32 {
+    sum = sum + i;
+}
+```
+
+## Compilation Model
+
+Leo programs follow a compilation pipeline:
+
+1. **Source Code** - Written in `.leo` files
+2. **Lexer** - Tokenizes source code
+3. **Parser** - Builds a parse tree using Rowan
+4. **AST** - Converts to typed Abstract Syntax Tree
+5. **Compiler Passes** - Type checking, optimization, and transformation
+6. **Aleo Bytecode** - Output as Aleo instructions
+
+## Program Structure
+
+Every Leo program must declare a program scope:
+
+```leo
+program token.aleo {
+    // Mappings
+    mapping account: address => u64;
+    
+    // Records
+    record token {
+        owner: address,
+        amount: u64,
+    }
+    
+    // Functions
+    fn mint_private(receiver: address, amount: u64) -> token {
+        return token {
+            owner: receiver,
+            amount: amount,
+        };
+    }
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Programs" icon="file-code" href="/language/programs">
+    Learn about program structure and organization
+  </Card>
+  <Card title="Data Types" icon="database" href="/language/data-types">
+    Explore Leo's type system
+  </Card>
+  <Card title="Functions" icon="function" href="/language/functions">
+    Write functions and define interfaces
+  </Card>
+  <Card title="Records" icon="rectangle-list" href="/language/records">
+    Create private records for ownership
+  </Card>
+</CardGroup>

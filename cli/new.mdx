@@ -1,0 +1,121 @@
+---
+title: leo new
+description: Create a new Leo project with the standard directory structure
+---
+
+The `leo new` command creates a new Leo project with the standard directory structure and template files.
+
+## Syntax
+
+```bash
+leo new <NAME> [OPTIONS]
+```
+
+## Arguments
+
+<ParamField path="NAME" type="string" required>
+  The name of the package to create. This will be used as the program name and directory name.
+</ParamField>
+
+## Options
+
+<ParamField path="-n, --network" type="string" default="testnet">
+  Name of the network to use. Options: `mainnet`, `testnet`, `canary`.
+</ParamField>
+
+<ParamField path="-e, --endpoint" type="string" default="http://localhost:3030">
+  Endpoint to retrieve network state from.
+</ParamField>
+
+## Examples
+
+### Create a New Project
+
+```bash
+leo new hello_world
+```
+
+This creates a directory structure:
+
+```
+hello_world/
+├── program.json          # Package manifest
+├── .env                  # Environment variables (gitignored)
+├── .gitignore           # Git ignore rules
+├── README.md            # Project README
+└── src/
+    └── main.leo         # Main program file
+```
+
+### Create with Network Configuration
+
+```bash
+leo new my_program --network testnet --endpoint https://api.explorer.provable.com/v1
+```
+
+## Project Structure
+
+### program.json
+
+The manifest file contains project metadata:
+
+```json
+{
+  "program": "hello_world.aleo",
+  "version": "0.1.0",
+  "description": "",
+  "license": "MIT",
+  "leo": "2.0.0"
+}
+```
+
+### src/main.leo
+
+The main program file includes a template:
+
+```leo
+program hello_world.aleo {
+    transition main(public a: u32, b: u32) -> u32 {
+        return a + b;
+    }
+}
+```
+
+### .env
+
+Environment variables for development:
+
+```bash
+NETWORK=testnet
+ENDPOINT=https://api.explorer.provable.com/v1
+```
+
+<Note>
+  The `.env` file is automatically added to `.gitignore` to prevent committing sensitive information.
+</Note>
+
+## After Creating a Project
+
+```bash
+cd hello_world
+leo build
+leo test
+leo run main 1u32 2u32
+```
+
+## Best Practices
+
+- Use lowercase with underscores for project names (e.g., `my_program`)
+- The project name becomes the program identifier with `.aleo` suffix
+- Review the generated `program.json` and update the description and license
+- Add your private key to `.env` for development (never commit this file)
+
+<Warning>
+  Never use production private keys in `.env` files. Use test keys for development.
+</Warning>
+
+## Next Steps
+
+- [Build your program](/cli/build)
+- [Run tests](/cli/test)
+- [Execute locally](/cli/run)

@@ -1,0 +1,565 @@
+---
+title: leo account
+description: Manage Aleo accounts including key generation, import, signing, and verification
+---
+
+The `leo account` command provides tools for managing Aleo accounts, including generating keys, importing accounts, signing messages, and verifying signatures.
+
+## Syntax
+
+```bash
+leo account <SUBCOMMAND> [OPTIONS]
+```
+
+## Subcommands
+
+### new
+
+Generate a new Aleo account with a random private key.
+
+```bash
+leo account new [OPTIONS]
+```
+
+### import
+
+Import an Aleo account from a private key.
+
+```bash
+leo account import [PRIVATE_KEY] [OPTIONS]
+```
+
+### sign
+
+Sign a message using your Aleo private key.
+
+```bash
+leo account sign [OPTIONS]
+```
+
+### verify
+
+Verify a signature from an Aleo address.
+
+```bash
+leo account verify [OPTIONS]
+```
+
+### decrypt
+
+Decrypt a record ciphertext using your private or view key.
+
+```bash
+leo account decrypt [OPTIONS]
+```
+
+## New Options
+
+<ParamField path="-s, --seed" type="number">
+  Seed the RNG with a numeric value for reproducible key generation.
+  
+  <Warning>
+    Only use `--seed` for testing. Production keys should use secure randomness.
+  </Warning>
+</ParamField>
+
+<ParamField path="-w, --write" type="boolean" default={false}>
+  Write the private key to the `.env` file in the current directory.
+</ParamField>
+
+<ParamField path="--discreet" type="boolean" default={false}>
+  Print sensitive information (private key) to an alternate screen for privacy.
+</ParamField>
+
+<ParamField path="-n, --network" type="string" default="testnet">
+  Network type: `mainnet`, `testnet`, or `canary`.
+</ParamField>
+
+<ParamField path="-e, --endpoint" type="string" default="https://api.explorer.provable.com/v1">
+  Network endpoint URL.
+</ParamField>
+
+## Import Options
+
+<ParamField path="PRIVATE_KEY" type="string">
+  Private key to import. If not provided, will prompt interactively.
+</ParamField>
+
+<ParamField path="-w, --write" type="boolean" default={false}>
+  Write the private key to the `.env` file.
+</ParamField>
+
+<ParamField path="--discreet" type="boolean" default={false}>
+  Print sensitive information discreetly.
+</ParamField>
+
+<ParamField path="-n, --network" type="string" default="testnet">
+  Network type.
+</ParamField>
+
+<ParamField path="-e, --endpoint" type="string" default="https://api.explorer.provable.com/v1">
+  Network endpoint URL.
+</ParamField>
+
+## Sign Options
+
+<ParamField path="--private-key" type="string">
+  Private key to use for signing.
+</ParamField>
+
+<ParamField path="--private-key-file" type="string">
+  Path to file containing the private key.
+</ParamField>
+
+<ParamField path="-m, --message" type="string" required>
+  Message (Aleo value) to sign.
+</ParamField>
+
+<ParamField path="-r, --raw" type="boolean" default={false}>
+  Parse the message as bytes instead of Aleo literals.
+</ParamField>
+
+<ParamField path="-n, --network" type="string" default="testnet">
+  Network type.
+</ParamField>
+
+## Verify Options
+
+<ParamField path="-a, --address" type="string" required>
+  Address to use for verification.
+</ParamField>
+
+<ParamField path="-s, --signature" type="string" required>
+  Signature to verify.
+</ParamField>
+
+<ParamField path="-m, --message" type="string" required>
+  Message (Aleo value) to verify against.
+</ParamField>
+
+<ParamField path="-r, --raw" type="boolean" default={false}>
+  Parse the message as bytes instead of Aleo literals.
+</ParamField>
+
+<ParamField path="-n, --network" type="string" default="testnet">
+  Network type.
+</ParamField>
+
+## Decrypt Options
+
+<ParamField path="-k, --key" type="string">
+  Private key or view key to use for decryption.
+</ParamField>
+
+<ParamField path="-f, --key-file" type="string">
+  Path to file containing the private key or view key.
+</ParamField>
+
+<ParamField path="-c, --ciphertext" type="string" required>
+  Record ciphertext to decrypt (starts with `record1`).
+</ParamField>
+
+<ParamField path="-n, --network" type="string" default="testnet">
+  Network type.
+</ParamField>
+
+## Examples
+
+### Generate New Account
+
+```bash
+leo account new
+```
+
+Output:
+```
+🔑 New Aleo Account Generated
+──────────────────────────────────────────────
+ Private Key: APrivateKey1zkp...
+   View Key: AViewKey1...
+    Address: aleo1...
+──────────────────────────────────────────────
+
+⚠️  Save your private key securely. It cannot be recovered if lost.
+```
+
+<Warning>
+  Store your private key securely. Anyone with your private key can access your account.
+</Warning>
+
+### Generate and Write to .env
+
+```bash
+leo account new --write
+```
+
+Creates or updates `.env`:
+```bash
+PRIVATE_KEY=APrivateKey1zkp...
+```
+
+### Generate with Seed (Testing)
+
+```bash
+leo account new --seed 12345
+```
+
+Generates the same key each time for testing:
+```
+Private Key: APrivateKey1zkp... (deterministic)
+```
+
+### Generate Discreetly
+
+```bash
+leo account new --discreet
+```
+
+Displays sensitive info on an alternate screen that clears after viewing.
+
+### Import Account
+
+```bash
+leo account import APrivateKey1zkp...
+```
+
+Output:
+```
+✅ Account Imported Successfully
+──────────────────────────────────────────────
+ Private Key: APrivateKey1zkp...
+   View Key: AViewKey1...
+    Address: aleo1...
+──────────────────────────────────────────────
+```
+
+### Import Interactively
+
+```bash
+leo account import
+```
+
+Prompts for private key:
+```
+Enter your private key: [hidden]
+```
+
+### Import and Write to .env
+
+```bash
+leo account import APrivateKey1zkp... --write
+```
+
+### Sign a Message
+
+#### Sign Aleo Literal
+
+```bash
+leo account sign \
+  --private-key APrivateKey1zkp... \
+  --message 1u32
+```
+
+Output:
+```
+Signature: sign1...
+```
+
+#### Sign from File
+
+```bash
+leo account sign \
+  --private-key-file ~/.leo/private_key \
+  --message "hello world"
+```
+
+#### Sign Raw Bytes
+
+```bash
+leo account sign \
+  --private-key APrivateKey1zkp... \
+  --message "Hello, Aleo!" \
+  --raw
+```
+
+### Verify a Signature
+
+```bash
+leo account verify \
+  --address aleo1... \
+  --signature sign1... \
+  --message 1u32
+```
+
+Output:
+```
+✅ Signature is valid.
+```
+
+Or if invalid:
+```
+❌ Signature is invalid.
+```
+
+### Verify Raw Message
+
+```bash
+leo account verify \
+  --address aleo1... \
+  --signature sign1... \
+  --message "Hello, Aleo!" \
+  --raw
+```
+
+### Decrypt Record with Private Key
+
+```bash
+leo account decrypt \
+  --key APrivateKey1zkp... \
+  --ciphertext record1zy9q3y...
+```
+
+Output:
+```
+{
+  owner: aleo1...,
+  amount: 100u64,
+  _nonce: 1234567890field
+}
+```
+
+### Decrypt Record with View Key
+
+```bash
+leo account decrypt \
+  --key AViewKey1... \
+  --ciphertext record1zy9q3y...
+```
+
+<Note>
+  View keys can decrypt records but cannot spend them.
+</Note>
+
+### Decrypt from File
+
+```bash
+leo account decrypt \
+  --key-file ~/.leo/private_key \
+  --ciphertext record1zy9q3y...
+```
+
+## Key Formats
+
+### Private Key
+Format: `APrivateKey1zkp...`
+
+A private key allows:
+- Signing transactions
+- Decrypting records
+- Deriving view key and address
+- Full account control
+
+### View Key
+Format: `AViewKey1...`
+
+A view key allows:
+- Decrypting records
+- Viewing transaction details
+- Cannot spend funds
+
+Derived from private key:
+```
+Private Key → View Key
+```
+
+### Address
+Format: `aleo1...`
+
+A public address for:
+- Receiving funds
+- Identifying accounts
+- Public visibility
+
+Derived from private key:
+```
+Private Key → View Key → Address
+```
+
+## Key Derivation
+
+The relationship between keys:
+
+```
+Private Key (secret)
+    ↓ derive
+View Key (semi-private)
+    ↓ derive  
+Address (public)
+```
+
+- **Private Key**: Full control, keep secret
+- **View Key**: Read-only access, can share selectively
+- **Address**: Public identifier, safe to share
+
+## Security Best Practices
+
+### 1. Generate Securely
+
+```bash
+# Good: Use system randomness
+leo account new
+
+# Bad: Use predictable seed (testing only)
+leo account new --seed 12345
+```
+
+### 2. Store Safely
+
+```bash
+# Good: Use secure storage
+leo account new > account.txt
+chmod 600 account.txt
+
+# Better: Use password manager or hardware wallet
+```
+
+### 3. Never Share Private Keys
+
+```bash
+# Good: Share address only
+Address: aleo1...
+
+# Bad: Share private key
+Private Key: APrivateKey1zkp... ❌
+```
+
+### 4. Use View Keys for Read-Only Access
+
+```bash
+# Share view key for auditing (not private key)
+View Key: AViewKey1...
+```
+
+### 5. Backup Securely
+
+```bash
+# Write to encrypted backup
+leo account new --discreet > backup.txt.gpg
+```
+
+### 6. Test with Small Amounts
+
+```bash
+# Test new accounts with minimal funds first
+leo execute transfer_public test_address 1u64 --broadcast
+```
+
+## Message Signing Use Cases
+
+### Authentication
+
+Prove account ownership without revealing private key:
+
+```bash
+# Sign challenge
+leo account sign --private-key APrivateKey1zkp... --message "auth-challenge-123"
+
+# Service verifies signature
+leo account verify --address aleo1... --signature sign1... --message "auth-challenge-123"
+```
+
+### Data Integrity
+
+Sign data to prove authenticity:
+
+```bash
+leo account sign --private-key APrivateKey1zkp... --message '{"action":"transfer","amount":100}' --raw
+```
+
+### Timestamping
+
+Create unforgeable timestamps:
+
+```bash
+leo account sign --private-key APrivateKey1zkp... --message "document-hash:abc123 timestamp:$(date +%s)" --raw
+```
+
+## Record Decryption
+
+Records are encrypted on-chain. Decrypt them with your key:
+
+```bash
+# Get record ciphertext from transaction
+leo query transaction at1abc... --network testnet | jq .execution.transitions[0].outputs[0]
+
+# Decrypt the record
+leo account decrypt \
+  --key APrivateKey1zkp... \
+  --ciphertext record1zy9q3y...
+```
+
+Common record types:
+- Credits records (from `credits.aleo`)
+- Custom program records
+- Fee records
+
+## Environment Variables
+
+Store account info in `.env`:
+
+```bash
+PRIVATE_KEY=APrivateKey1zkp...
+NETWORK=testnet
+ENDPOINT=https://api.explorer.provable.com/v1
+```
+
+Leo commands automatically use these values:
+
+```bash
+leo deploy --broadcast  # Uses PRIVATE_KEY from .env
+```
+
+<Warning>
+  Add `.env` to `.gitignore` to prevent committing private keys to version control.
+</Warning>
+
+## Troubleshooting
+
+### Invalid Private Key Format
+
+```
+Failed to parse private key.
+```
+
+Ensure:
+1. Private key starts with `APrivateKey1`
+2. Full key is provided (not truncated)
+3. No extra whitespace
+
+### Signature Verification Failed
+
+```
+Signature is invalid.
+```
+
+Check:
+1. Address matches the signing private key
+2. Message exactly matches signed message
+3. Signature is complete and correct
+
+### Decryption Failed
+
+```
+Failed to decrypt record.
+```
+
+Verify:
+1. Ciphertext starts with `record1`
+2. Key corresponds to the record owner
+3. Record ciphertext is complete
+
+## Next Steps
+
+- [Deploy programs](/cli/deploy)
+- [Execute transactions](/cli/execute)
+- [Query account balance](/cli/query)

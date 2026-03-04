@@ -1,0 +1,556 @@
+---
+title: Debugging Leo Programs
+description: Debugging techniques, understanding error messages, and solving common issues
+---
+
+Learn how to debug Leo programs, interpret error messages, and resolve common issues during development.
+
+## Error Messages
+
+Leo provides structured error messages with unique error codes to help diagnose issues quickly.
+
+### Error Code Format
+
+Leo errors follow the format: `E{PREFIX}037{CODE}`
+
+- **Prefix**: Indicates the error category
+- **037**: Fixed identifier for Leo errors
+- **Code**: Unique error number within the category
+
+Example: `EPAR0370042` is parser error 42
+
+### Error Categories
+
+Leo errors are organized by compiler component:
+
+<Accordion title="Parser Errors (PAR: 0-999)">
+Errors during source code parsing:
+
+```
+Error [EPAR0370009]: unexpected string: expected 'ident', got 'let'
+    --> main.leo:5:5
+     |
+   5 |     let let x: u32 = 5u32;
+     |         ^^^
+```
+
+Common causes:
+- Syntax errors
+- Invalid token sequences
+- Missing semicolons or braces
+</Accordion>
+
+<Accordion title="AST Errors (AST: 2000-2999)">
+Errors in abstract syntax tree construction:
+
+```
+Error [EAST0372001]: Invalid type
+    --> main.leo:10:15
+```
+
+Common causes:
+- Type mismatches
+- Invalid type annotations
+- Malformed AST nodes
+</Accordion>
+
+<Accordion title="Compiler Errors (CMP: 6000-6999)">
+Errors during compilation:
+
+```
+Error [ECMP0376045]: Cannot assign to immutable variable
+    --> main.leo:8:5
+     |
+   8 |     x = 10u32;
+     |     ^
+```
+
+Common causes:
+- Type checking failures
+- Undefined variables
+- Invalid operations
+</Accordion>
+
+<Accordion title="Package Errors (PAK: 5000-5999)">
+Errors related to project structure and dependencies:
+
+```
+Error [EPAK0375001]: Failed to load package at 'program.json'
+```
+
+Common causes:
+- Missing `program.json`
+- Invalid manifest format
+- Dependency resolution failures
+</Accordion>
+
+### Understanding Error Output
+
+Leo error messages include:
+
+1. **Error code**: Unique identifier for the error type
+2. **Error message**: Human-readable description
+3. **Source location**: File, line, and column
+4. **Code snippet**: Context showing where the error occurred
+5. **Help text**: Suggestions for fixing the issue (when available)
+
+```
+Error [ECMP0376123]: Undefined variable `y`
+    --> src/main.leo:12:20
+     |
+  12 |         let total = x + y;
+     |                         ^
+     |
+     = help: Did you mean `x`?
+```
+
+<Tip>
+Error codes never change once released. You can search for error codes in documentation or online for detailed explanations.
+</Tip>
+
+## Debugging Techniques
+
+### Using Console Output
+
+Leo supports console functions for debugging (development only):
+
+```leo
+fn debug_values(a: u32, b: u32) -> u32 {
+    console.log("Values: a={}, b={}", a, b);
+    let result: u32 = a + b;
+    console.log("Result: {}", result);
+    return result;
+}
+```
+
+<Warning>
+Console functions are removed during production compilation and should only be used for debugging.
+</Warning>
+
+### Type Checking
+
+Explicitly specify types to catch errors early:
+
+```leo
+// Explicit types help catch mismatches
+let amount: u64 = 100u64;        // Clear
+let result: u32 = process(amount);  // Type error caught
+```
+
+### Assertions for Debugging
+
+Use assertions to validate assumptions:
+
+```leo
+fn transfer(amount: u64, balance: u64) -> u64 {
+    // Debug assertion
+    assert_neq(amount, 0u64);
+    assert_eq(balance >= amount, true);
+    
+    return balance - amount;
+}
+```
+
+### Incremental Testing
+
+Break complex functions into testable parts:
+
+```leo
+fn complex_calculation(x: u32) -> u32 {
+    let step1: u32 = calculate_step1(x);
+    let step2: u32 = calculate_step2(step1);
+    let step3: u32 = calculate_step3(step2);
+    return step3;
+}
+
+// Test each step independently
+@test
+fn test_step1() {
+    let result: u32 = calculate_step1(5u32);
+    assert_eq(result, 10u32);
+}
+```
+
+## Common Issues
+
+### Type Mismatch Errors
+
+<Steps>
+
+<Step title="Problem">
+```
+Error: Type mismatch, expected `u32`, got `u64`
+```
+</Step>
+
+<Step title="Cause">
+Mixing different integer types without explicit conversion:
+
+```leo
+let a: u32 = 100u32;
+let b: u64 = 200u64;
+let c: u32 = a + b;  // Error: can't add u32 and u64
+```
+</Step>
+
+<Step title="Solution">
+Ensure type consistency:
+
+```leo
+let a: u32 = 100u32;
+let b: u32 = 200u32;  // Use same type
+let c: u32 = a + b;   // Works
+```
+</Step>
+
+</Steps>
+
+### Undefined Variable
+
+<Steps>
+
+<Step title="Problem">
+```
+Error: Undefined variable `total`
+```
+</Step>
+
+<Step title="Cause">
+Using a variable before declaration:
+
+```leo
+fn calculate() -> u32 {
+    result = total + 10u32;  // total not defined
+    let total: u32 = 5u32;
+    return result;
+}
+```
+</Step>
+
+<Step title="Solution">
+Declare variables before use:
+
+```leo
+fn calculate() -> u32 {
+    let total: u32 = 5u32;
+    let result: u32 = total + 10u32;
+    return result;
+}
+```
+</Step>
+
+</Steps>
+
+### Invalid Program Name
+
+<Steps>
+
+<Step title="Problem">
+```
+Error: Invalid program name '_myprogram.aleo'
+```
+</Step>
+
+<Step title="Cause">
+Program name violates naming rules:
+- Starts with underscore or number
+- Contains invalid characters
+- Contains the word "aleo" in the name
+</Step>
+
+<Step title="Solution">
+Follow naming conventions:
+
+```json
+// Invalid
+"program": "_myprogram.aleo"     // starts with _
+"program": "123program.aleo"     // starts with number
+"program": "my-program.aleo"     // contains hyphen
+"program": "myaleo.aleo"        // contains "aleo"
+
+// Valid
+"program": "my_program.aleo"    // correct format
+```
+</Step>
+
+</Steps>
+
+### Circular Dependency
+
+<Steps>
+
+<Step title="Problem">
+```
+Error: Circular dependency detected
+```
+</Step>
+
+<Step title="Cause">
+Programs importing each other:
+
+```
+program_a.aleo imports program_b.aleo
+program_b.aleo imports program_a.aleo
+```
+</Step>
+
+<Step title="Solution">
+Restructure dependencies to be acyclic:
+
+```
+program_a.aleo imports utils.aleo
+program_b.aleo imports utils.aleo
+// Both depend on utils, no circular dependency
+```
+</Step>
+
+</Steps>
+
+### Mapping Access Outside Finalize
+
+<Steps>
+
+<Step title="Problem">
+```
+Error: Cannot access mapping outside finalize block
+```
+</Step>
+
+<Step title="Cause">
+Trying to use `Mapping::get` or `Mapping::set` in a regular function:
+
+```leo
+fn invalid_access() -> bool {
+    let value: bool = Mapping::get(users, addr);  // Error
+    return value;
+}
+```
+</Step>
+
+<Step title="Solution">
+Access mappings only in finalize functions:
+
+```leo
+fn check_user() -> Final {
+    let addr: address = self.caller;
+    return final { finalize_check(addr); };
+}
+
+final fn finalize_check(addr: address) {
+    let is_registered: bool = Mapping::get(users, addr);
+    assert_eq(is_registered, true);
+}
+```
+</Step>
+
+</Steps>
+
+## Build and Compilation Issues
+
+### Check Syntax
+
+Run syntax validation without full compilation:
+
+```bash
+leo check
+```
+
+### Clean Build
+
+Remove build artifacts and rebuild:
+
+```bash
+rm -rf build/ outputs/
+leo build
+```
+
+### Verbose Output
+
+Enable detailed compiler output:
+
+```bash
+leo build --verbose
+```
+
+### Compiler Version
+
+Verify you're using the correct Leo version:
+
+```bash
+leo --version
+```
+
+Update if needed:
+
+```bash
+leo update
+```
+
+## Development Workflow
+
+<Steps>
+
+<Step title="Write Code">
+Implement your feature with explicit types and comments:
+
+```leo
+fn process_payment(amount: u64) -> u64 {
+    // Validate amount is non-zero
+    assert_neq(amount, 0u64);
+    return amount;
+}
+```
+</Step>
+
+<Step title="Check Syntax">
+Validate syntax before testing:
+
+```bash
+leo check
+```
+</Step>
+
+<Step title="Run Tests">
+Execute tests to verify behavior:
+
+```bash
+leo test
+```
+</Step>
+
+<Step title="Debug Failures">
+If tests fail, add debug output:
+
+```leo
+@test
+fn test_payment() {
+    console.log("Testing payment processing");
+    let result: u64 = process_payment(100u64);
+    console.log("Result: {}", result);
+    assert_eq(result, 100u64);
+}
+```
+</Step>
+
+<Step title="Build for Production">
+Compile the final program:
+
+```bash
+leo build
+```
+</Step>
+
+</Steps>
+
+## Rust-level Debugging
+
+For compiler development, use Rust debugging tools:
+
+### Running Tests with Output
+
+```bash
+# Show test output
+cargo test -- --nocapture
+
+# Run specific test
+TEST_FILTER=test_name cargo test -p leo-compiler
+```
+
+### Using Clippy
+
+Run the linter to catch common issues:
+
+```bash
+cargo clippy -p leo-compiler -- -D warnings
+```
+
+### Format Checking
+
+Ensure code is properly formatted:
+
+```bash
+cargo +nightly fmt --check
+```
+
+<Note>
+Leo uses nightly Rust formatter. Install with:
+```bash
+rustup install nightly
+```
+</Note>
+
+## Performance Debugging
+
+### Circuit Size
+
+Monitor generated circuit size:
+
+```bash
+leo build --verbose
+# Check output for constraint counts
+```
+
+### Loop Unrolling
+
+Be aware of loop unrolling impact:
+
+```leo
+// Small loop - efficient
+for i: u8 in 0u8..10u8 {
+    // 10 iterations unrolled
+}
+
+// Large loop - may cause issues
+for i: u32 in 0u32..1000u32 {
+    // 1000 iterations - consider alternatives
+}
+```
+
+<Warning>
+Excessive loop unrolling increases circuit size dramatically. Keep iteration counts reasonable.
+</Warning>
+
+### Memory Usage
+
+From the compiler's performance guidelines:
+
+- Pre-allocate collections with `with_capacity` when size is known
+- Avoid unnecessary clones
+- Use references when ownership isn't needed
+- Minimize intermediate allocations
+
+## Getting Help
+
+### Search Error Codes
+
+Look up error codes in documentation:
+
+```
+https://docs.leo-lang.org/errors/EPAR0370042
+```
+
+### Community Resources
+
+- **Discord**: [discord.gg/aleo](https://discord.gg/aleo)
+- **GitHub Issues**: [github.com/ProvableHQ/leo/issues](https://github.com/ProvableHQ/leo/issues)
+- **Forum**: [forum.aleo.org](https://forum.aleo.org)
+
+### Filing Bug Reports
+
+When filing issues, include:
+
+1. Leo version (`leo --version`)
+2. Minimal reproducible example
+3. Full error message with code
+4. Expected vs actual behavior
+5. Operating system
+
+<Tip>
+Provide a minimal test case that reproduces the issue. This helps maintainers diagnose and fix problems faster.
+</Tip>
+
+## Next Steps
+
+- Learn about [package management](/development/package-management) to handle dependencies
+- Review [best practices](/development/best-practices) for writing robust code
+- Explore [testing strategies](/development/testing) for comprehensive coverage

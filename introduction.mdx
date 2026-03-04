@@ -1,0 +1,90 @@
+---
+title: Introduction to Leo
+description: Learn about Leo, the imperative, statically-typed programming language for writing private applications on Aleo
+---
+
+# Introduction to Leo
+
+Welcome to Leo, the programming language designed for building private applications on the Aleo blockchain.
+
+## What is Leo?
+
+Leo is an imperative, statically-typed programming language that abstracts low-level cryptographic concepts and makes it easy to integrate private applications into your stack. Leo compiles to circuits, making zero-knowledge proofs practical.
+
+<Info>
+Leo provides a high-level language that makes zero-knowledge proofs accessible to developers without requiring deep cryptographic knowledge.
+</Info>
+
+## Key Features
+
+**Developer-Friendly Syntax**
+
+The syntax of Leo is influenced by traditional programming languages like JavaScript, Scala, and Rust, with a strong emphasis on readability and ease-of-use.
+
+**Built for Privacy**
+
+Leo compiles directly to Aleo instructions, enabling you to build applications with built-in privacy guarantees on the Aleo blockchain.
+
+**Comprehensive Testing Tools**
+
+Leo offers developers tools to sanity check circuits including:
+- Unit tests
+- Integration tests
+- Console functions for debugging
+
+**Type Safety**
+
+As a statically-typed language, Leo catches errors at compile time, providing a safer development experience.
+
+## The Aleo Ecosystem
+
+Leo is one part of a greater ecosystem for building private applications on [Aleo](https://aleo.org/). The language works seamlessly with:
+
+- **Aleo blockchain** - The underlying Layer 1 blockchain that executes Leo programs
+- **snarkVM** - The virtual machine that runs Aleo instructions
+- **snarkOS** - The decentralized operating system for the Aleo network
+
+## Example Leo Program
+
+Here's a simple Leo program that adds two numbers:
+
+```leo
+program helloworld.aleo {
+    // The 'helloworld' main function.
+    fn main(public a: u32, b: u32) -> u32 {
+        return a + b;
+    }
+}
+```
+
+<Note>
+Leo is currently in active development and the language is subject to updates and improvements. Check the [GitHub repository](https://github.com/ProvableHQ/leo) for the latest changes.
+</Note>
+
+## Use Cases
+
+Leo is ideal for building:
+
+- **Private DeFi applications** - Create tokens, DEXs, and financial instruments with privacy guarantees
+- **Private voting systems** - Build governance mechanisms where votes remain confidential
+- **Confidential gaming** - Develop games with hidden state and fair outcomes
+- **Private identity solutions** - Create identity systems that preserve user privacy
+
+## Version Information
+
+The current version of Leo is **3.4.0**. Leo requires Rust **1.93.1** or later.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Install Leo" icon="download" href="/installation">
+    Get Leo installed on your system
+  </Card>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Build your first Leo program
+  </Card>
+</CardGroup>
+
+## License
+
+Leo is open source software licensed under [GNU General Public License v3.0](https://github.com/ProvableHQ/leo/blob/master/LICENSE.md).

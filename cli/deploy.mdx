@@ -1,0 +1,495 @@
+---
+title: leo deploy
+description: Deploy Leo programs to the Aleo network with on-chain verification
+---
+
+The `leo deploy` command deploys Leo programs and their dependencies to the Aleo network, making them publicly available for execution.
+
+## Syntax
+
+```bash
+leo deploy [OPTIONS]
+```
+
+## Options
+
+### Network Options
+
+<ParamField path="--network" type="string" required>
+  Network type: `mainnet`, `testnet`, or `canary`.
+</ParamField>
+
+<ParamField path="--endpoint" type="string" required>
+  Network endpoint URL:
+  - Mainnet: `https://api.explorer.provable.com/v1`
+  - Testnet: `https://api.explorer.provable.com/v1`
+  - Devnet: `http://localhost:3030`
+</ParamField>
+
+<ParamField path="--private-key" type="string" required>
+  Private key to sign deployment transactions.
+  
+  <Warning>
+    Never deploy to mainnet with test private keys. Secure your private keys.
+  </Warning>
+</ParamField>
+
+<ParamField path="--devnet" type="boolean" default={false}>
+  Whether the network is a devnet.
+</ParamField>
+
+<ParamField path="--consensus-heights" type="string">
+  Custom consensus heights (comma-separated) for custom devnets.
+</ParamField>
+
+### Fee Options
+
+<ParamField path="--priority-fees" type="string">
+  Priority fees in microcredits for each deployment, delimited by `|`.
+  
+  Example: `1000|2000|default`
+</ParamField>
+
+<ParamField path="--fee-records" type="string">
+  Records to pay fees privately, delimited by `|`. Use `default` for public fees.
+</ParamField>
+
+### Transaction Actions
+
+<ParamField path="--broadcast" type="boolean" default={false}>
+  Broadcast deployment transactions to the network.
+</ParamField>
+
+<ParamField path="--print" type="boolean" default={false}>
+  Print deployment transactions as JSON to stdout.
+</ParamField>
+
+<ParamField path="--save" type="string">
+  Save deployment transactions to the specified directory.
+</ParamField>
+
+### Deployment Options
+
+<ParamField path="--skip" type="string[]">
+  Skip deployment of programs containing these substrings (comma-separated).
+  
+  Example: `--skip test,old`
+</ParamField>
+
+<ParamField path="--skip-deploy-certificate" type="boolean" default={false}>
+  Use placeholder certificate and verifying keys during deployment.
+  
+  <Warning>
+    Only use for testing. Deployments with placeholder certificates are not secure.
+  </Warning>
+</ParamField>
+
+### Additional Options
+
+<ParamField path="-y, --yes" type="boolean" default={false}>
+  Skip confirmation prompts.
+</ParamField>
+
+<ParamField path="--consensus-version" type="number">
+  Consensus version to use (1-13). Auto-detected if not provided.
+</ParamField>
+
+<ParamField path="--max-wait" type="number" default={8}>
+  Seconds to wait for block confirmation.
+</ParamField>
+
+<ParamField path="--blocks-to-check" type="number" default={12}>
+  Number of blocks to check for transaction confirmation.
+</ParamField>
+
+### Build Options
+
+<ParamField path="--no-cache" type="boolean" default={true}>
+  Don't use the dependency cache. Always enabled for deploy.
+</ParamField>
+
+<ParamField path="--no-local" type="boolean" default={false}>
+  Use network versions of dependencies.
+</ParamField>
+
+## Examples
+
+### Deploy to Testnet
+
+```bash
+leo deploy \
+  --broadcast \
+  --private-key APrivateKey1zkp... \
+  --network testnet \
+  --endpoint https://api.explorer.provable.com/v1
+```
+
+Output:
+```
+🚀 Deployment Plan
+──────────────────────────────────────────────
+📦 Programs to Deploy (in order):
+  1. my_lib.aleo
+     • Status: Not on network
+     • Size: 1.5 KB
+     • Fee: ~5,234,567 μcredits
+
+  2. hello_world.aleo
+     • Status: Not on network  
+     • Size: 2.3 KB
+     • Fee: ~8,123,456 μcredits
+
+💰 Total Estimated Cost: 13,358,023 μcredits (~0.013 credits)
+──────────────────────────────────────────────
+
+Do you want to proceed with deployment? [y/N]: y
+
+📤 Deploying my_lib.aleo...
+✅ Deployment confirmed!
+   Transaction ID: at1abc...
+
+📤 Deploying hello_world.aleo...
+✅ Deployment confirmed!
+   Transaction ID: at1def...
+
+🎉 All programs deployed successfully!
+```
+
+### Deploy with Priority Fee
+
+```bash
+leo deploy \
+  --broadcast \
+  --priority-fees 10000 \
+  --private-key APrivateKey1zkp...
+```
+
+<Note>
+  Priority fees help ensure faster deployment by incentivizing validators.
+</Note>
+
+### Deploy and Save Transactions
+
+```bash
+leo deploy \
+  --save ./deployments \
+  --private-key APrivateKey1zkp...
+```
+
+Saves deployment transactions to:
+```
+deployments/
+├── my_lib.aleo.deployment.json
+└── hello_world.aleo.deployment.json
+```
+
+### Deploy and Print
+
+```bash
+leo deploy --print --private-key APrivateKey1zkp...
+```
+
+Prints deployment transactions as JSON without broadcasting.
+
+### Deploy Specific Program
+
+```bash
+leo deploy \
+  --skip my_lib \
+  --broadcast \
+  --private-key APrivateKey1zkp...
+```
+
+Skips `my_lib.aleo` and deploys only `hello_world.aleo`.
+
+### Deploy to Devnet
+
+```bash
+leo deploy \
+  --broadcast \
+  --devnet \
+  --network testnet \
+  --endpoint http://localhost:3030 \
+  --private-key APrivateKey1zkp8CZNn3yeCseEtxuVPbDCwSyhGW6yZKUYKfgXmcpoGPWH
+```
+
+### Deploy Without Confirmation
+
+```bash
+leo deploy \
+  --broadcast \
+  --yes \
+  --private-key APrivateKey1zkp...
+```
+
+<Warning>
+  Use `--yes` with caution. It skips all confirmation prompts including fee confirmations.
+</Warning>
+
+## Deployment Flow
+
+1. **Build Phase**:
+   - Compiles program and dependencies with `--no-cache`
+   - Generates bytecode and certificates
+
+2. **Plan Generation**:
+   - Determines deployment order (dependencies first)
+   - Checks which programs already exist on network
+   - Calculates deployment costs
+
+3. **Cost Estimation**:
+   - Storage cost (proportional to program size)
+   - Finalize cost (computational cost)
+   - Priority fee (optional)
+
+4. **User Confirmation**:
+   - Displays deployment plan
+   - Shows total estimated cost
+   - Prompts for confirmation (unless `--yes`)
+
+5. **Deployment Execution**:
+   - For each program in order:
+     - Generates deployment transaction
+     - Authorizes fee (public or private)
+     - Broadcasts transaction (if `--broadcast`)
+     - Waits for confirmation
+
+6. **Verification**:
+   - Confirms program exists on network
+   - Verifies program matches local bytecode
+
+## Deployment Order
+
+Programs are deployed in dependency order:
+
+```
+Dependencies → Dependents
+```
+
+Example:
+```
+my_lib.aleo     (no dependencies)
+  ↓
+helper.aleo     (depends on my_lib)
+  ↓  
+app.aleo        (depends on helper)
+```
+
+Deployment order: `my_lib` → `helper` → `app`
+
+## Cost Calculation
+
+Deployment costs consist of:
+
+### Storage Cost
+Based on program size:
+```
+Storage Cost = size_in_bytes * storage_rate
+```
+
+### Finalize Cost  
+Based on deployment complexity:
+```
+Finalize Cost = base_cost + (num_imports * import_cost)
+```
+
+### Priority Fee
+Optional user-specified fee:
+```
+Priority Fee = user_specified_amount
+```
+
+### Total Cost
+```
+Total = Storage Cost + Finalize Cost + Priority Fee
+```
+
+<Info>
+  Costs are displayed in microcredits (μcredits). 1 credit = 1,000,000 microcredits.
+</Info>
+
+## Deployment Status
+
+For each program, Leo checks network status:
+
+### Not on Network
+```
+• Status: Not on network
+```
+Program will be deployed.
+
+### Already Deployed (Matching)
+```
+• Status: On network (matches local)
+```
+Deployment skipped.
+
+### Already Deployed (Different)
+```
+⚠️ Status: On network (DOES NOT match local)
+```
+Deployment will fail. Update your program version or use a different name.
+
+## Transaction Format
+
+Deployment transactions are saved as JSON:
+
+```json
+{
+  "type": "deploy",
+  "id": "at1...",
+  "owner": {
+    "address": "aleo1...",
+    "signature": "sign1..."
+  },
+  "deployment": {
+    "edition": 0,
+    "program": "program hello_world.aleo;\n...",
+    "verifying_keys": [...],
+    "certificate": "..."
+  },
+  "fee": {
+    "transition": {...},
+    "global_state_root": "sr1...",
+    "proof": "..."
+  }
+}
+```
+
+## Program Editions
+
+Each deployment has an edition number:
+- Edition 0: Initial deployment
+- Edition 1+: Updates (if supported by network)
+
+<Warning>
+  Most networks do not support program updates. Deploy with caution.
+</Warning>
+
+## Verifying Keys and Certificates
+
+Deployments include:
+
+### Verifying Keys
+Cryptographic keys to verify program execution proofs.
+
+### Certificate
+Proof that verifying keys were generated correctly.
+
+<Note>
+  Use `--skip-deploy-certificate` only for testing. Placeholder certificates are not secure.
+</Note>
+
+## Deployment Strategies
+
+### Development
+```bash
+# Deploy to local devnet
+leo deploy \
+  --broadcast \
+  --devnet \
+  --endpoint http://localhost:3030 \
+  --private-key <TEST_KEY>
+```
+
+### Staging
+```bash
+# Deploy to testnet
+leo deploy \
+  --broadcast \
+  --network testnet \
+  --endpoint https://api.explorer.provable.com/v1 \
+  --private-key <TESTNET_KEY>
+```
+
+### Production
+```bash
+# Deploy to mainnet
+leo deploy \
+  --broadcast \
+  --network mainnet \
+  --endpoint https://api.explorer.provable.com/v1 \
+  --private-key <MAINNET_KEY> \
+  --priority-fees 10000
+```
+
+## Monitoring Deployments
+
+Leo monitors deployment confirmation:
+
+```bash
+📤 Deploying hello_world.aleo...
+
+Transaction ID: at1abc...
+Fee ID: fi1def...
+
+Waiting for confirmation...
+✅ Deployment confirmed!
+```
+
+If deployment fails to confirm:
+```bash
+❌ Deployment not confirmed within 12 blocks.
+    Transaction may still be pending.
+    Check transaction ID: at1abc...
+```
+
+## Troubleshooting
+
+### Program Already Exists
+
+```
+Program 'hello_world.aleo' already exists on the network.
+```
+
+Options:
+1. Use a different program name
+2. Deploy to a different network
+3. Wait for program update support (if applicable)
+
+### Insufficient Balance
+
+```
+Insufficient balance to pay deployment fee.
+```
+
+Ensure your account has enough credits:
+```bash
+leo query program credits.aleo/account/<your_address>/balance
+```
+
+### Dependency Not Deployed
+
+```
+Dependency 'my_lib.aleo' is not deployed on the network.
+```
+
+Deploy dependencies first or include them in the deployment.
+
+### Network Unreachable
+
+```
+Failed to connect to network endpoint.
+```
+
+Check:
+1. Endpoint URL is correct
+2. Network is running
+3. Firewall allows connections
+
+## Best Practices
+
+1. **Test Locally**: Deploy to devnet before testnet/mainnet
+2. **Verify Dependencies**: Ensure all dependencies are deployed
+3. **Review Costs**: Check estimated costs before confirming
+4. **Save Transactions**: Use `--save` for record-keeping
+5. **Monitor Confirmation**: Wait for confirmation before assuming success
+6. **Use Priority Fees**: For time-sensitive deployments
+7. **Backup Keys**: Secure your private keys
+8. **Version Control**: Tag deployments in version control
+
+## Next Steps
+
+- [Execute deployed programs](/cli/execute)
+- [Query program data](/cli/query)
+- [Update dependencies](/cli/add)

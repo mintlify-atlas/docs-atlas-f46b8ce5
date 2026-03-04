@@ -1,0 +1,488 @@
+---
+title: 'Token Example'
+description: 'Complete walkthrough of a transparent and shielded token implementation in Leo'
+---
+
+## Overview
+
+The Token example demonstrates how to build a custom token with both public (transparent) and private (shielded) functionality. This is one of the most comprehensive examples, showcasing records, mappings, and finalizers.
+
+<Info>
+This example is located at `.circleci/token/` in the Leo repository and is actively tested in CI.
+</Info>
+
+## Program Structure
+
+```leo
+program token.aleo {
+    mapping account: address => u64;
+    
+    record token {
+        owner: address,
+        amount: u64,
+    }
+    
+    // Mint functions
+    // Transfer functions
+    // Finalizers
+}
+```
+
+## Data Structures
+
+### Mapping: Public Balances
+
+Public token balances are stored on-chain in a mapping:
+
+```leo
+mapping account: address => u64;
+```
+
+**Properties:**
+- Publicly visible on the blockchain
+- Accessed in finalizer functions
+- Key: `address` (account owner)
+- Value: `u64` (token balance)
+
+### Record: Private Tokens
+
+Private tokens are stored as records:
+
+```leo
+record token {
+    owner: address,  // The token owner
+    amount: u64,     // The token amount
+}
+```
+
+**Properties:**
+- Private by default (encrypted on-chain)
+- Owner controls spending
+- Can be split and combined
+- Zero-knowledge proofs hide amounts
+
+## Minting Functions
+
+### Public Mint
+
+Mint tokens directly to a public balance:
+
+```leo
+fn mint_public(public receiver: address, public amount: u64) -> Final {
+    return final { finalize_mint_public(receiver, amount); };
+}
+```
+
+**Finalizer:**
+```leo
+final fn finalize_mint_public(public receiver: address, public amount: u64) {
+    let current_amount: u64 = Mapping::get_or_use(account, receiver, 0u64);
+    Mapping::set(account, receiver, current_amount + amount);
+}
+```
+
+**How it works:**
+1. Function receives receiver address and amount (both public)
+2. Returns a finalizer that executes on-chain
+3. Finalizer reads current balance (or 0 if none exists)
+4. Adds the minted amount to the balance
+5. Stores the updated balance on-chain
+
+**Usage:**
+```bash
+leo run mint_public aleo1qnr4dkkvkgfqph0vzc3y6z2eu975wnpz2925ntjccd5cfqxtyu8s7pyjh9 1000u64
+```
+
+### Private Mint
+
+Mint tokens as a private record:
+
+```leo
+fn mint_private(receiver: address, amount: u64) -> token {
+    return token {
+        owner: receiver,
+        amount: amount,
+    };
+}
+```
+
+**How it works:**
+1. Creates a new token record
+2. Sets the owner to the receiver
+3. Sets the amount
+4. Returns the record (encrypted on-chain)
+
+**Key Difference:**
+- No finalizer needed (no on-chain state update)
+- Record is returned to the receiver
+- Amount remains private
+
+**Usage:**
+```bash
+leo run mint_private aleo1qnr4dkkvkgfqph0vzc3y6z2eu975wnpz2925ntjccd5cfqxtyu8s7pyjh9 1000u64
+```
+
+## Transfer Functions
+
+### Public Transfer
+
+Transfer tokens between public balances:
+
+```leo
+fn transfer_public(public receiver: address, public amount: u64) -> Final {
+    return final { finalize_transfer_public(self.caller, receiver, amount); };
+}
+```
+
+**Finalizer:**
+```leo
+final fn finalize_transfer_public(
+    public sender: address,
+    public receiver: address,
+    public amount: u64
+) {
+    // Deduct from sender
+    let sender_amount: u64 = Mapping::get_or_use(account, sender, 0u64);
+    Mapping::set(account, sender, sender_amount - amount);
+    
+    // Add to receiver
+    let receiver_amount: u64 = Mapping::get_or_use(account, receiver, 0u64);
+    Mapping::set(account, receiver, receiver_amount + amount);
+}
+```
+
+**How it works:**
+1. Uses `self.caller` to identify the sender
+2. Finalizer decrements sender's balance
+3. Finalizer increments receiver's balance
+4. Transaction fails if sender has insufficient balance
+
+**Usage:**
+```bash
+leo run transfer_public aleo1receiver... 100u64
+```
+
+### Private Transfer
+
+Transfer tokens using private records:
+
+```leo
+fn transfer_private(
+    sender: token,
+    receiver: address,
+    amount: u64
+) -> (token, token) {
+    // Calculate change
+    let difference: u64 = sender.amount - amount;
+    
+    // Create change record for sender
+    let remaining: token = token {
+        owner: sender.owner,
+        amount: difference,
+    };
+    
+    // Create new record for receiver
+    let transferred: token = token {
+        owner: receiver,
+        amount: amount,
+    };
+    
+    return (remaining, transferred);
+}
+```
+
+**How it works:**
+1. Consumes the sender's token record
+2. Calculates the change amount
+3. Creates a new record for the sender with the remaining balance
+4. Creates a new record for the receiver with the transferred amount
+5. Returns both records
+
+**Key Features:**
+- Completely private (amounts hidden)
+- No on-chain state updates
+- Proof verifies sender has sufficient balance
+- Fails if `sender.amount < amount` (underflow protection)
+
+**Usage:**
+```bash
+leo run transfer_private "{ owner: aleo1..., amount: 1000u64 }" aleo1receiver... 100u64
+```
+
+### Private to Public Transfer
+
+Convert private tokens to public balance:
+
+```leo
+fn transfer_private_to_public(
+    sender: token,
+    public receiver: address,
+    public amount: u64
+) -> (token, Final) {
+    let difference: u64 = sender.amount - amount;
+    
+    let remaining: token = token {
+        owner: sender.owner,
+        amount: difference,
+    };
+    
+    return (remaining, final { finalize_transfer_private_to_public(receiver, amount); });
+}
+```
+
+**Finalizer:**
+```leo
+final fn finalize_transfer_private_to_public(
+    public receiver: address,
+    public amount: u64
+) {
+    let current_amount: u64 = Mapping::get_or_use(account, receiver, 0u64);
+    Mapping::set(account, receiver, current_amount + amount);
+}
+```
+
+**How it works:**
+1. Consumes private record
+2. Creates change record for sender (private)
+3. Finalizer adds amount to receiver's public balance
+4. Receiver address and amount become public
+
+**Privacy Trade-offs:**
+- Sender's identity remains private
+- Receiver address is public
+- Amount is public
+
+### Public to Private Transfer
+
+Convert public balance to private record:
+
+```leo
+fn transfer_public_to_private(
+    public receiver: address,
+    public amount: u64
+) -> (token, Final) {
+    let transferred: token = token {
+        owner: receiver,
+        amount: amount,
+    };
+    
+    return (transferred, final { finalize_transfer_public_to_private(self.caller, amount); });
+}
+```
+
+**Finalizer:**
+```leo
+final fn finalize_transfer_public_to_private(
+    public sender: address,
+    public amount: u64
+) {
+    let current_amount: u64 = Mapping::get_or_use(account, sender, 0u64);
+    Mapping::set(account, sender, current_amount - amount);
+}
+```
+
+**How it works:**
+1. Creates private record for receiver
+2. Finalizer deducts amount from sender's public balance
+3. Receiver gets private record
+
+**Privacy Trade-offs:**
+- Sender address is public (`self.caller`)
+- Receiver address is public
+- Amount is public
+- Resulting record is private
+
+## Running the Example
+
+### Build the Program
+
+```bash
+cd .circleci/token
+leo build
+```
+
+### Run Functions
+
+```bash
+# Mint public tokens
+leo run mint_public aleo1qnr4dkkvkgfqph0vzc3y6z2eu975wnpz2925ntjccd5cfqxtyu8s7pyjh9 1000u64
+
+# Mint private tokens
+leo run mint_private aleo1qnr4dkkvkgfqph0vzc3y6z2eu975wnpz2925ntjccd5cfqxtyu8s7pyjh9 1000u64
+
+# Transfer public tokens
+leo run transfer_public aleo1receiver... 100u64
+
+# Transfer private tokens
+leo run transfer_private "{owner: aleo1..., amount: 1000u64}" aleo1receiver... 100u64
+```
+
+### Use the Demo Script
+
+```bash
+./run.sh
+```
+
+## Key Concepts
+
+### Records vs Mappings
+
+| Feature | Records | Mappings |
+|---------|---------|----------|
+| Privacy | Private (encrypted) | Public (transparent) |
+| Storage | Off-chain (user holds) | On-chain (global state) |
+| Access | Owner only | Anyone can read |
+| Cost | Lower (no state updates) | Higher (state updates) |
+
+### When to Use Public vs Private
+
+**Use Public (Mappings) when:**
+- Transparency is required
+- Regulatory compliance needs
+- Public audit trails
+- Simpler user experience
+
+**Use Private (Records) when:**
+- Privacy is paramount
+- Hiding transaction amounts
+- Competitive advantages
+- User preference for privacy
+
+### Finalizers
+
+Finalizers execute on-chain after the main function:
+
+1. Main function generates a proof
+2. Proof is verified
+3. Finalizer executes on-chain
+4. Finalizer can access and modify mappings
+5. Finalizer can use `block.height` and other on-chain data
+
+## Security Considerations
+
+### Overflow Protection
+
+```leo
+let current_amount: u64 = Mapping::get_or_use(account, receiver, 0u64);
+Mapping::set(account, receiver, current_amount + amount);
+```
+
+<Warning>
+Addition can overflow! If `current_amount + amount > u64::MAX`, the transaction fails.
+</Warning>
+
+### Underflow Protection
+
+```leo
+let difference: u64 = sender.amount - amount;
+```
+
+<Warning>
+Subtraction can underflow! If `sender.amount < amount`, the proof generation fails.
+</Warning>
+
+### Authorization
+
+The `self.caller` value identifies the transaction initiator:
+
+```leo
+finalize_transfer_public(self.caller, receiver, amount);
+```
+
+This ensures only the account owner can transfer their tokens.
+
+## Testing
+
+### Unit Tests
+
+Create test cases in `inputs/token.in`:
+
+```
+[mint_public]
+receiver: address = aleo1qnr4dkkvkgfqph0vzc3y6z2eu975wnpz2925ntjccd5cfqxtyu8s7pyjh9;
+amount: u64 = 1000u64;
+
+[transfer_private]
+sender: token = {owner: aleo1..., amount: 1000u64};
+receiver: address = aleo1receiver...;
+amount: u64 = 100u64;
+```
+
+### Run Tests
+
+```bash
+leo test
+```
+
+## Extensions and Improvements
+
+### Add Total Supply Tracking
+
+```leo
+mapping total_supply: u8 => u64;
+
+final fn finalize_mint_public(public receiver: address, public amount: u64) {
+    // Update balance
+    let current_amount: u64 = Mapping::get_or_use(account, receiver, 0u64);
+    Mapping::set(account, receiver, current_amount + amount);
+    
+    // Update total supply
+    let supply: u64 = Mapping::get_or_use(total_supply, 0u8, 0u64);
+    Mapping::set(total_supply, 0u8, supply + amount);
+}
+```
+
+### Add Burn Functionality
+
+```leo
+fn burn_public(public amount: u64) -> Final {
+    return final { finalize_burn_public(self.caller, amount); };
+}
+
+final fn finalize_burn_public(public owner: address, public amount: u64) {
+    let current_amount: u64 = Mapping::get_or_use(account, owner, 0u64);
+    Mapping::set(account, owner, current_amount - amount);
+}
+```
+
+### Add Transfer Limits
+
+```leo
+final fn finalize_transfer_public(
+    public sender: address,
+    public receiver: address,
+    public amount: u64
+) {
+    assert(amount <= 10000u64); // Max transfer limit
+    
+    // ... rest of transfer logic
+}
+```
+
+## Related Examples
+
+<CardGroup cols={2}>
+  <Card title="Lottery" icon="ticket" href="/examples/lottery">
+    Simpler example with randomness
+  </Card>
+  <Card title="Tic-Tac-Toe" icon="grid" href="/examples/tictactoe">
+    Game logic with structs
+  </Card>
+</CardGroup>
+
+## Further Reading
+
+<CardGroup cols={2}>
+  <Card title="Records" icon="lock" href="/language/records">
+    Learn more about records
+  </Card>
+  <Card title="Mappings" icon="database" href="/language/mappings">
+    Deep dive into mappings
+  </Card>
+  <Card title="Finalize" icon="check-circle" href="/language/finalize">
+    Understanding finalize blocks
+  </Card>
+  <Card title="Built-in Types" icon="shapes" href="/reference/built-in-types">
+    Type reference
+  </Card>
+</CardGroup>

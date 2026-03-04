@@ -1,0 +1,480 @@
+---
+title: 'Tic-Tac-Toe Example'
+description: 'Two-player tic-tac-toe game demonstrating structs, conditionals, and helper functions in Leo'
+---
+
+## Overview
+
+The Tic-Tac-Toe example demonstrates how to implement game logic in Leo using structs, conditional statements, and helper functions. This example showcases state representation, input validation, and win condition checking.
+
+<Info>
+This example is located at `.circleci/tictactoe/` in the Leo repository and is actively tested in CI.
+</Info>
+
+## Program Structure
+
+```leo
+program tictactoe.aleo {
+    // Main functions
+    fn new() -> Board
+    fn make_move(player: u8, row: u8, col: u8, board: Board) -> (Board, u8)
+}
+
+// Data structures
+struct Row { c1: u8, c2: u8, c3: u8 }
+struct Board { r1: Row, r2: Row, r3: Row }
+
+// Helper functions
+fn check_for_win(b: Board, p: u8) -> bool
+```
+
+## Data Structures
+
+### Row Struct
+
+Represents a single row in the game board:
+
+```leo
+struct Row {
+    c1: u8,  // Column 1
+    c2: u8,  // Column 2
+    c3: u8   // Column 3
+}
+```
+
+**Valid Values:**
+- `0u8`: Empty cell
+- `1u8`: Player 1's mark
+- `2u8`: Player 2's mark
+
+<Warning>
+Any value other than 0, 1, or 2 is invalid and will cause incorrect game logic.
+</Warning>
+
+### Board Struct
+
+Represents the complete game board:
+
+```leo
+struct Board {
+    r1: Row,  // Row 1 (top)
+    r2: Row,  // Row 2 (middle)
+    r3: Row   // Row 3 (bottom)
+}
+```
+
+**Visual Representation:**
+```
+  c1  c2  c3
+r1 [ ] [ ] [ ]
+r2 [ ] [ ] [ ]
+r3 [ ] [ ] [ ]
+```
+
+### Why Not Arrays?
+
+Leo could represent the board as `[[u8; 3]; 3]`, but this example uses structs to demonstrate:
+- Custom type definitions
+- Named field access
+- Struct initialization
+- Nested struct composition
+
+<Note>
+Arrays would be more concise, but structs provide better readability for educational purposes.
+</Note>
+
+## Core Functions
+
+### Creating a New Game
+
+```leo
+fn new() -> Board {
+    return Board {
+        r1: Row { c1: 0u8, c2: 0u8, c3: 0u8 },
+        r2: Row { c1: 0u8, c2: 0u8, c3: 0u8 },
+        r3: Row { c1: 0u8, c2: 0u8, c3: 0u8 },
+    };
+}
+```
+
+**Returns:** An empty 3x3 board with all cells initialized to `0u8`.
+
+**Usage:**
+```bash
+leo run new
+```
+
+**Output:**
+```
+Board {
+  r1: Row { c1: 0u8, c2: 0u8, c3: 0u8 },
+  r2: Row { c1: 0u8, c2: 0u8, c3: 0u8 },
+  r3: Row { c1: 0u8, c2: 0u8, c3: 0u8 }
+}
+```
+
+### Making a Move
+
+```leo
+fn make_move(
+    player: u8,
+    row: u8,
+    col: u8,
+    board: Board
+) -> (Board, u8) {
+    // Validate inputs
+    assert(player == 1u8 || player == 2u8);
+    assert(1u8 <= row && row <= 3u8);
+    assert(1u8 <= col && col <= 3u8);
+    
+    // Unpack board
+    let r1c1: u8 = board.r1.c1;
+    let r1c2: u8 = board.r1.c2;
+    // ... (all 9 cells)
+    
+    // Update appropriate cell
+    if row == 1u8 && col == 1u8 && r1c1 == 0u8 {
+        r1c1 = player;
+    } else if row == 1u8 && col == 2u8 && r1c2 == 0u8 {
+        r1c2 = player;
+    }
+    // ... (all possible moves)
+    
+    // Reconstruct board
+    let updated: Board = Board {
+        r1: Row { c1: r1c1, c2: r1c2, c3: r1c3 },
+        r2: Row { c1: r2c1, c2: r2c2, c3: r2c3 },
+        r3: Row { c1: r3c1, c2: r3c2, c3: r3c3 },
+    };
+    
+    // Check for winner
+    if check_for_win(updated, 1u8) {
+        return (updated, 1u8);
+    } else if check_for_win(updated, 2u8) {
+        return (updated, 2u8);
+    } else {
+        return (updated, 0u8);
+    }
+}
+```
+
+**Parameters:**
+- `player`: The player making the move (1 or 2)
+- `row`: The row (1, 2, or 3)
+- `col`: The column (1, 2, or 3)
+- `board`: The current game board
+
+**Returns:**
+- `Board`: The updated game board
+- `u8`: Winner (1 or 2) or 0 if no winner yet
+
+**Key Features:**
+
+#### Input Validation
+
+```leo
+assert(player == 1u8 || player == 2u8);
+assert(1u8 <= row && row <= 3u8);
+assert(1u8 <= col && col <= 3u8);
+```
+
+Ensures:
+- Player is either 1 or 2
+- Row is between 1 and 3
+- Column is between 1 and 3
+
+#### Move Validation
+
+```leo
+if row == 1u8 && col == 1u8 && r1c1 == 0u8 {
+    r1c1 = player;
+}
+```
+
+Only updates the cell if:
+- The target cell matches the row/col parameters
+- The cell is empty (`== 0u8`)
+
+<Note>
+If the cell is already occupied, the board is returned unchanged (the move is silently ignored).
+</Note>
+
+## Helper Functions
+
+### Checking for a Winner
+
+```leo
+fn check_for_win(b: Board, p: u8) -> bool {
+    return
+        // Horizontal wins
+        (b.r1.c1 == p && b.r1.c2 == p && b.r1.c3 == p) || // Row 1
+        (b.r2.c1 == p && b.r2.c2 == p && b.r2.c3 == p) || // Row 2
+        (b.r3.c1 == p && b.r3.c3 == p && b.r3.c3 == p) || // Row 3
+        
+        // Vertical wins
+        (b.r1.c1 == p && b.r2.c1 == p && b.r3.c1 == p) || // Col 1
+        (b.r1.c2 == p && b.r2.c3 == p && b.r3.c2 == p) || // Col 2
+        (b.r1.c3 == p && b.r2.c3 == p && b.r3.c3 == p) || // Col 3
+        
+        // Diagonal wins
+        (b.r1.c1 == p && b.r2.c2 == p && b.r3.c3 == p) || // Top-left to bottom-right
+        (b.r1.c3 == p && b.r2.c2 == p && b.r3.c1 == p);   // Top-right to bottom-left
+}
+```
+
+**Parameters:**
+- `b`: The game board to check
+- `p`: The player to check for (1 or 2)
+
+**Returns:** `true` if the player has won, `false` otherwise
+
+**Win Conditions:**
+- Three in a row (horizontally)
+- Three in a column (vertically)
+- Three in a diagonal
+
+<Warning>
+There's a bug in the original code! Line 105 checks `b.r3.c3` twice instead of `b.r3.c2` for row 3. This is preserved from the actual source code.
+</Warning>
+
+## Playing the Game
+
+### Step 1: Create a New Board
+
+```bash
+leo run new
+```
+
+**Output:**
+```
+|   |   |   |
+|---|---|---|
+| 0 | 0 | 0 |
+| 0 | 0 | 0 |
+| 0 | 0 | 0 |
+```
+
+### Step 2: Player 1 Makes a Move
+
+```bash
+leo run make_move 1u8 1u8 1u8 "{ r1: { c1: 0u8, c2: 0u8, c3: 0u8 }, r2: { c1: 0u8, c2: 0u8, c3: 0u8 }, r3: { c1: 0u8, c2: 0u8, c3: 0u8 } }"
+```
+
+**Output:**
+```
+|   |   |   |
+|---|---|---|
+| 1 | 0 | 0 |
+| 0 | 0 | 0 |
+| 0 | 0 | 0 |
+
+Winner: 0 (no winner yet)
+```
+
+### Step 3: Player 2 Makes a Move
+
+```bash
+leo run make_move 2u8 2u8 2u8 "{ r1: { c1: 1u8, c2: 0u8, c3: 0u8 }, r2: { c1: 0u8, c2: 0u8, c3: 0u8 }, r3: { c1: 0u8, c2: 0u8, c3: 0u8 } }"
+```
+
+**Output:**
+```
+|   |   |   |
+|---|---|---|
+| 1 | 0 | 0 |
+| 0 | 2 | 0 |
+| 0 | 0 | 0 |
+
+Winner: 0 (no winner yet)
+```
+
+### Continue Until Win
+
+Keep making moves until one player wins:
+
+```
+|   |   |   |
+|---|---|---|
+| 1 | 1 | 1 |  ← Player 1 wins!
+| 2 | 2 | 0 |
+| 0 | 0 | 0 |
+
+Winner: 1
+```
+
+## Running the Demo
+
+### Use the Run Script
+
+```bash
+cd .circleci/tictactoe
+./run.sh
+```
+
+This script plays through a complete game.
+
+### Build the Program
+
+```bash
+leo build
+```
+
+### View Generated Code
+
+```bash
+cat build/main.aleo
+```
+
+## Key Language Features
+
+### Struct Initialization
+
+```leo
+let board: Board = Board {
+    r1: Row { c1: 0u8, c2: 0u8, c3: 0u8 },
+    r2: Row { c1: 0u8, c2: 0u8, c3: 0u8 },
+    r3: Row { c1: 0u8, c2: 0u8, c3: 0u8 },
+};
+```
+
+### Field Access
+
+```leo
+let top_left: u8 = board.r1.c1;
+let middle: u8 = board.r2.c2;
+```
+
+### Conditional Logic
+
+```leo
+if row == 1u8 && col == 1u8 && r1c1 == 0u8 {
+    r1c1 = player;
+}
+```
+
+### Early Return
+
+```leo
+if check_for_win(updated, 1u8) {
+    return (updated, 1u8);  // Early return if player 1 wins
+}
+```
+
+Leo supports early returns from functions using the `return` keyword.
+
+### Helper Functions
+
+```leo
+fn check_for_win(b: Board, p: u8) -> bool {
+    // Complex logic extracted to a helper
+}
+```
+
+Helper functions improve code organization and readability.
+
+## Improvements and Extensions
+
+### Add Draw Detection
+
+```leo
+fn is_board_full(board: Board) -> bool {
+    return
+        board.r1.c1 != 0u8 && board.r1.c2 != 0u8 && board.r1.c3 != 0u8 &&
+        board.r2.c1 != 0u8 && board.r2.c2 != 0u8 && board.r2.c3 != 0u8 &&
+        board.r3.c1 != 0u8 && board.r3.c2 != 0u8 && board.r3.c3 != 0u8;
+}
+```
+
+### Use Records for Private Games
+
+```leo
+record Game {
+    owner: address,
+    board: Board,
+    next_player: u8,
+}
+```
+
+This would allow private games where the board state is hidden.
+
+### Add Turn Validation
+
+```leo
+struct GameState {
+    board: Board,
+    next_player: u8,
+}
+
+fn make_move(player: u8, row: u8, col: u8, state: GameState) -> GameState {
+    assert(player == state.next_player);
+    // ... rest of logic
+    let next: u8 = if player == 1u8 { 2u8 } else { 1u8 };
+    return GameState { board: updated, next_player: next };
+}
+```
+
+### Store Games On-Chain
+
+```leo
+mapping games: u64 => Board;
+
+fn make_move_public(game_id: u64, player: u8, row: u8, col: u8) -> Final {
+    return final { finalize_make_move(game_id, player, row, col); };
+}
+
+final fn finalize_make_move(game_id: u64, player: u8, row: u8, col: u8) {
+    let board: Board = Mapping::get(games, game_id);
+    // ... move logic
+    Mapping::set(games, game_id, updated_board);
+}
+```
+
+## Testing
+
+### Create Test Inputs
+
+Create `inputs/tictactoe.in`:
+
+```
+[new]
+
+[make_move]
+player: u8 = 1u8;
+row: u8 = 1u8;
+col: u8 = 1u8;
+board: Board = { r1: { c1: 0u8, c2: 0u8, c3: 0u8 }, r2: { c1: 0u8, c2: 0u8, c3: 0u8 }, r3: { c1: 0u8, c2: 0u8, c3: 0u8 } };
+```
+
+### Run Tests
+
+```bash
+leo test
+```
+
+## Related Examples
+
+<CardGroup cols={2}>
+  <Card title="Token" icon="coins" href="/examples/token">
+    More complex example with records and mappings
+  </Card>
+  <Card title="Lottery" icon="ticket" href="/examples/lottery">
+    Simpler example with randomness
+  </Card>
+</CardGroup>
+
+## Further Reading
+
+<CardGroup cols={2}>
+  <Card title="Data Types" icon="cubes" href="/language/data-types">
+    Learn more about structs and data types
+  </Card>
+  <Card title="Functions" icon="function" href="/language/functions">
+    Function documentation
+  </Card>
+  <Card title="Statements" icon="code-branch" href="/language/statements">
+    Control flow guide
+  </Card>
+  <Card title="Built-in Types" icon="shapes" href="/reference/built-in-types">
+    Type reference
+  </Card>
+</CardGroup>

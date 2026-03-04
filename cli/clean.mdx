@@ -1,0 +1,411 @@
+---
+title: leo clean
+description: Clean build artifacts and output directories
+---
+
+The `leo clean` command removes build artifacts and output directories from your Leo project.
+
+## Syntax
+
+```bash
+leo clean
+```
+
+## Description
+
+The clean command removes:
+- `build/` directory - Compiled bytecode and build artifacts
+- `outputs/` directory - Compiler output files and AST snapshots
+
+It does not remove:
+- Source code in `src/`
+- Project manifest `program.json`
+- Environment file `.env`
+- Dependencies directory (cache remains intact)
+
+## Examples
+
+### Basic Clean
+
+```bash
+leo clean
+```
+
+Output:
+```
+🧹 Cleaned the outputs directory outputs/
+🧹 Cleaned the build directory build/
+```
+
+### Before Clean
+
+Project structure:
+```
+my_project/
+├── program.json
+├── .env
+├── src/
+│   └── main.leo
+├── build/
+│   ├── main.aleo
+│   ├── main.abi.json
+│   └── program.json
+├── outputs/
+│   ├── initial_ast.json
+│   └── type_checked_ast.json
+└── imports/
+    └── credits.aleo
+```
+
+### After Clean
+
+```bash
+leo clean
+```
+
+Project structure:
+```
+my_project/
+├── program.json
+├── .env
+├── src/
+│   └── main.leo
+└── imports/
+    └── credits.aleo
+```
+
+The `build/` and `outputs/` directories are removed.
+
+<Note>
+  The `imports/` directory is preserved. It contains dependency bytecode that will be reused on rebuild.
+</Note>
+
+## When to Use Clean
+
+### 1. Fresh Build
+
+Start with a clean slate:
+
+```bash
+leo clean
+leo build
+```
+
+Useful when:
+- Build artifacts might be corrupted
+- Dependencies have changed
+- Switching between branches
+
+### 2. Disk Space
+
+Reclaim disk space:
+
+```bash
+leo clean
+```
+
+Build artifacts can be large, especially for complex programs.
+
+### 3. Before Deployment
+
+Ensure clean build before deploying:
+
+```bash
+leo clean
+leo build
+leo deploy --broadcast
+```
+
+### 4. After Switching Branches
+
+Clean when switching git branches:
+
+```bash
+git checkout feature-branch
+leo clean
+leo build
+```
+
+### 5. Troubleshooting Build Issues
+
+Resolve build inconsistencies:
+
+```bash
+leo clean
+leo build --no-cache
+```
+
+The `--no-cache` flag also clears dependency cache.
+
+## What Gets Removed
+
+### build/ Directory
+
+Contains:
+- `main.aleo` - Compiled program bytecode
+- `main.abi.json` - Application Binary Interface
+- `program.json` - Build manifest
+
+### outputs/ Directory
+
+Contains:
+- `initial_ast.json` - AST snapshot after parsing
+- `type_checked_ast.json` - AST after type checking
+- `*.ast` - AST snapshots from each compiler pass
+- Intermediate compiler output
+
+## What Doesn't Get Removed
+
+### Source Code
+```
+src/
+└── main.leo  ← Preserved
+```
+
+### Project Configuration
+```
+program.json  ← Preserved
+.env          → Preserved
+```
+
+### Dependencies
+```
+imports/
+└── credits.aleo  ← Preserved
+```
+
+<Info>
+  To also clear dependency cache, use `leo build --no-cache` after cleaning.
+</Info>
+
+## Clean Workflow
+
+### Typical Development Cycle
+
+```bash
+# 1. Make changes to source code
+vim src/main.leo
+
+# 2. Build
+leo build
+
+# 3. Test
+leo test
+
+# 4. Clean (optional)
+leo clean
+
+# 5. Rebuild
+leo build
+```
+
+### Before Committing
+
+```bash
+# Clean build artifacts
+leo clean
+
+# Ensure .gitignore is correct
+cat .gitignore
+
+# Commit source only
+git add src/ program.json
+git commit -m "Update program logic"
+```
+
+### Continuous Integration
+
+```yaml
+# GitHub Actions example
+name: Build
+on: [push, pull_request]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install Leo
+        run: curl -sSf https://raw.githubusercontent.com/AleoHQ/leo/refs/heads/mainnet/install.sh | sh
+      - name: Clean
+        run: leo clean
+      - name: Build
+        run: leo build
+      - name: Test
+        run: leo test
+```
+
+## Comparison with Other Commands
+
+| Command | Effect | Cache | Dependencies |
+|---------|--------|-------|-------------|
+| `leo clean` | Removes `build/` and `outputs/` | Preserved | Preserved |
+| `leo build` | Builds program | Uses cache | Downloads if needed |
+| `leo build --no-cache` | Builds program | Clears & rebuilds | Re-downloads |
+
+## Troubleshooting
+
+### Clean Has No Effect
+
+If `leo clean` reports no changes:
+
+```bash
+leo clean
+```
+
+No output means directories already don't exist. This is normal after:
+- Fresh checkout
+- Never built before
+- Already cleaned
+
+### Directories Recreated Immediately
+
+Running `leo build` after clean recreates directories:
+
+```bash
+leo clean
+leo build  # Recreates build/ and outputs/
+```
+
+This is expected behavior.
+
+### Permission Errors
+
+```
+Permission denied: cannot remove directory
+```
+
+Solutions:
+1. Check file permissions:
+   ```bash
+   ls -la build/ outputs/
+   ```
+
+2. Ensure files aren't locked:
+   - Close editors
+   - Stop running processes
+   - Check file system
+
+3. Use elevated permissions (if appropriate):
+   ```bash
+   sudo leo clean
+   ```
+
+### Partial Clean
+
+If only one directory is removed:
+
+```
+🧹 Cleaned the outputs directory outputs/
+```
+
+The `build/` directory might not exist. This is normal.
+
+## Manual Clean
+
+You can manually clean without Leo:
+
+```bash
+rm -rf build/ outputs/
+```
+
+Equivalent to:
+
+```bash
+leo clean
+```
+
+## Clean and Reset
+
+For a complete reset:
+
+```bash
+# Clean build artifacts
+leo clean
+
+# Remove dependency cache
+rm -rf imports/
+
+# Remove global cache (optional)
+rm -rf ~/.leo/cache/
+
+# Fresh build
+leo build --no-cache
+```
+
+<Warning>
+  Removing global cache affects all Leo projects on your system.
+</Warning>
+
+## Best Practices
+
+### 1. Clean Before Important Builds
+
+```bash
+# Production deployment
+leo clean
+leo build
+leo deploy --broadcast --network mainnet
+```
+
+### 2. Don't Commit Build Artifacts
+
+Ensure `.gitignore` contains:
+
+```gitignore
+build/
+outputs/
+imports/
+.leo/
+.env
+```
+
+### 3. Clean After Dependency Changes
+
+```bash
+leo add new_lib --network
+leo clean
+leo build
+```
+
+### 4. Periodic Cleanup
+
+Clean old projects:
+
+```bash
+find ~/projects -name "build" -type d -exec rm -rf {} +
+find ~/projects -name "outputs" -type d -exec rm -rf {} +
+```
+
+### 5. CI/CD Integration
+
+Always clean in CI:
+
+```bash
+leo clean && leo build && leo test
+```
+
+## Disk Space Considerations
+
+Build artifacts size:
+
+- Small program: ~100 KB - 1 MB
+- Medium program: 1 MB - 10 MB
+- Large program: 10 MB - 100 MB+
+
+With AST snapshots enabled:
+- Can be 2-5x larger
+
+For multiple projects:
+```bash
+# Check total size
+du -sh */build */outputs
+
+# Clean all projects
+for dir in */; do (cd "$dir" && leo clean); done
+```
+
+## Next Steps
+
+- [Build programs](/cli/build)
+- [Update Leo CLI](/cli/update)
+- [Create new projects](/cli/new)

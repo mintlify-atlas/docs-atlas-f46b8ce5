@@ -1,0 +1,512 @@
+---
+title: leo remove
+description: Remove dependencies from your Leo project
+---
+
+The `leo remove` command removes dependencies from your Leo project's manifest.
+
+## Syntax
+
+```bash
+leo remove [NAME] [OPTIONS]
+```
+
+## Arguments
+
+<ParamField path="NAME" type="string">
+  The dependency name to remove. Can be specified with or without `.aleo` suffix.
+  
+  Not required when using `--all` flag.
+  
+  Examples:
+  - `credits.aleo`
+  - `credits` (automatically adds `.aleo`)
+</ParamField>
+
+## Options
+
+<ParamField path="--all" type="boolean" default={false}>
+  Remove all dependencies (or all dev dependencies when used with `--dev`).
+</ParamField>
+
+<ParamField path="--dev" type="boolean" default={false}>
+  Remove from development dependencies instead of regular dependencies.
+</ParamField>
+
+## Examples
+
+### Remove Single Dependency
+
+```bash
+leo remove credits.aleo
+```
+
+Output:
+```
+✅ Successfully removed the network dependency credits.aleo.
+```
+
+Updates `program.json` by removing the dependency.
+
+### Remove Dependency (Short Syntax)
+
+```bash
+leo remove credits
+```
+
+Automatically appends `.aleo`:
+```
+✅ Successfully removed the network dependency credits.aleo.
+```
+
+### Remove Local Dependency
+
+```bash
+leo remove my_lib
+```
+
+Output:
+```
+✅ Successfully removed the local dependency my_lib.aleo with path ../my_lib.
+```
+
+### Remove All Dependencies
+
+```bash
+leo remove --all
+```
+
+Output:
+```
+✅ Successfully removed all dependencies.
+```
+
+Clears the `dependencies` array in `program.json`:
+```json
+{
+  "dependencies": []
+}
+```
+
+<Warning>
+  This removes ALL dependencies from your project. Use with caution.
+</Warning>
+
+### Remove Development Dependency
+
+```bash
+leo remove test_utils --dev
+```
+
+Output:
+```
+✅ Successfully removed the local dependency test_utils.aleo with path ../test_utils.
+```
+
+Removes from `dev_dependencies` array only.
+
+### Remove All Development Dependencies
+
+```bash
+leo remove --all --dev
+```
+
+Output:
+```
+✅ Successfully removed all development dependencies.
+```
+
+Clears the `dev_dependencies` array:
+```json
+{
+  "dev_dependencies": []
+}
+```
+
+## Before and After
+
+### Before Removal
+
+`program.json`:
+```json
+{
+  "program": "my_program.aleo",
+  "version": "0.1.0",
+  "dependencies": [
+    {
+      "name": "credits.aleo",
+      "location": "network"
+    },
+    {
+      "name": "my_lib.aleo",
+      "location": "local",
+      "path": "../my_lib"
+    }
+  ],
+  "dev_dependencies": [
+    {
+      "name": "test_utils.aleo",
+      "location": "local",
+      "path": "../test_utils"
+    }
+  ]
+}
+```
+
+### After Removal
+
+```bash
+leo remove credits
+```
+
+`program.json`:
+```json
+{
+  "program": "my_program.aleo",
+  "version": "0.1.0",
+  "dependencies": [
+    {
+      "name": "my_lib.aleo",
+      "location": "local",
+      "path": "../my_lib"
+    }
+  ],
+  "dev_dependencies": [
+    {
+      "name": "test_utils.aleo",
+      "location": "local",
+      "path": "../test_utils"
+    }
+  ]
+}
+```
+
+## Removing Dependencies
+
+### By Type
+
+#### Network Dependency
+```bash
+leo remove credits --network
+```
+
+<Note>
+  The `--network` flag is optional. Leo automatically detects dependency type.
+</Note>
+
+#### Local Dependency
+```bash
+leo remove my_lib
+```
+
+### By Scope
+
+#### Regular Dependency
+```bash
+leo remove credits
+```
+
+#### Development Dependency
+```bash
+leo remove test_utils --dev
+```
+
+## Effect on Build
+
+After removing a dependency:
+
+```bash
+leo build
+```
+
+The removed dependency:
+- Is no longer downloaded
+- Is not included in the build
+- Cannot be imported in Leo code
+
+### Before Removal
+
+```leo
+import credits.aleo;
+import my_lib.aleo;
+
+program my_program.aleo {
+    transition main() {
+        let result: u64 = my_lib.aleo/calculate(100u64);
+        return result;
+    }
+}
+```
+
+### After Removing my_lib
+
+```bash
+leo remove my_lib
+leo build
+```
+
+Error:
+```
+Error: Dependency 'my_lib.aleo' not found in program.json
+```
+
+You must remove the import and any usage:
+
+```leo
+program my_program.aleo {
+    transition main() {
+        // Remove usage of my_lib
+        return 100u64;
+    }
+}
+```
+
+## Common Workflows
+
+### Replace Network Dependency with Local
+
+```bash
+# Remove network dependency
+leo remove my_lib
+
+# Add local version
+leo add my_lib --local ../my_lib
+```
+
+### Replace Local Dependency with Network
+
+```bash
+# Deploy local dependency first
+cd ../my_lib
+leo deploy --broadcast
+
+# Replace in main project
+cd ../my_project
+leo remove my_lib
+leo add my_lib --network
+```
+
+### Clean Up Unused Dependencies
+
+```bash
+# Remove unused dependencies one by one
+leo remove old_lib
+leo remove deprecated_utils
+leo remove test_dependency
+```
+
+### Switch Dependency Versions
+
+```bash
+# Remove old version
+leo remove token
+
+# Add new version with specific edition
+leo add token --network --edition 1
+```
+
+## Troubleshooting
+
+### Dependency Not Found
+
+```
+Error: Dependency 'my_lib.aleo' not found.
+```
+
+The dependency doesn't exist in `program.json`. Check:
+
+```bash
+cat program.json | jq .dependencies
+```
+
+### Wrong Scope
+
+```bash
+leo remove test_utils
+```
+
+```
+Error: Dependency 'test_utils.aleo' not found.
+```
+
+If it's a dev dependency:
+```bash
+leo remove test_utils --dev
+```
+
+### Build Failures After Removal
+
+```
+Error: Dependency 'my_lib.aleo' not found
+```
+
+You removed a dependency but still reference it. Solutions:
+
+1. Remove import statements:
+   ```leo
+   // Remove this:
+   import my_lib.aleo;
+   ```
+
+2. Remove function calls:
+   ```leo
+   // Remove this:
+   let result: u64 = my_lib.aleo/calculate(100u64);
+   ```
+
+3. Re-add the dependency:
+   ```bash
+   leo add my_lib --local ../my_lib
+   ```
+
+## Dependency Management Workflow
+
+### Development Phase
+
+```bash
+# Add local dependencies for rapid iteration
+leo add shared_lib --local ../shared_lib
+leo add utils --local ../utils
+```
+
+### Testing Phase
+
+```bash
+# Add test dependencies
+leo add test_utils --local ../test_utils --dev
+leo add mock_data --local ../mocks --dev
+```
+
+### Pre-Deployment
+
+```bash
+# Remove dev dependencies from production build
+leo remove test_utils --dev
+leo remove mock_data --dev
+
+# Replace local with network dependencies
+leo remove shared_lib
+leo add shared_lib --network
+```
+
+### Cleanup
+
+```bash
+# Remove all dev dependencies
+leo remove --all --dev
+
+# Remove specific unused dependencies
+leo remove old_lib
+leo remove deprecated_utils
+```
+
+## Best Practices
+
+### 1. Clean Imports After Removal
+
+Always update your source code:
+
+```leo
+// Before removal
+import credits.aleo;
+import my_lib.aleo;  // ← Will be removed
+
+program my_program.aleo {
+    // ...
+}
+
+// After removal
+import credits.aleo;
+// Removed my_lib import
+
+program my_program.aleo {
+    // Updated code without my_lib
+}
+```
+
+### 2. Test After Removal
+
+Always build and test:
+
+```bash
+leo remove my_lib
+leo build
+leo test
+```
+
+### 3. Document Dependency Changes
+
+Update `README.md`:
+
+```markdown
+## Dependencies
+
+- `credits.aleo` - Standard token operations
+- ~~`my_lib.aleo`~~ - Removed in v0.2.0
+```
+
+### 4. Version Control
+
+Commit changes to `program.json`:
+
+```bash
+leo remove my_lib
+git add program.json
+git commit -m "Remove my_lib dependency"
+```
+
+### 5. Communicate Changes
+
+For shared projects, notify team members:
+
+```bash
+# After removing dependency
+git push
+# Notify: "Removed my_lib dependency, update your imports"
+```
+
+## Comparison with Add
+
+| Command | Purpose | Effect |
+|---------|---------|--------|
+| `leo add my_lib --local ../my_lib` | Add dependency | Adds to `program.json`, includes in build |
+| `leo remove my_lib` | Remove dependency | Removes from `program.json`, excludes from build |
+| `leo add my_lib --dev` | Add dev dependency | Adds to `dev_dependencies` |
+| `leo remove my_lib --dev` | Remove dev dependency | Removes from `dev_dependencies` |
+| `leo add --network` | Add from network | Fetches from network during build |
+| `leo remove` | Remove dependency | Removes from manifest |
+
+## Advanced Usage
+
+### Scripted Dependency Management
+
+```bash
+#!/bin/bash
+# remove-all-local-deps.sh
+
+# Get all local dependencies
+DEPS=$(cat program.json | jq -r '.dependencies[] | select(.location == "local") | .name')
+
+# Remove each one
+for DEP in $DEPS; do
+    echo "Removing $DEP"
+    leo remove "$DEP"
+done
+```
+
+### Conditional Dependency Removal
+
+```bash
+#!/bin/bash
+# Remove dev dependencies in production
+
+if [ "$ENVIRONMENT" = "production" ]; then
+    leo remove --all --dev
+fi
+```
+
+## Next Steps
+
+- [Add dependencies](/cli/add)
+- [Build with dependencies](/cli/build)
+- [Update Leo CLI](/cli/update)

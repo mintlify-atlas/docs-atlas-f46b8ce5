@@ -1,0 +1,467 @@
+---
+title: Testing Leo Programs
+description: Writing unit tests, integration tests, and using the Leo test framework
+---
+
+Learn how to write and run tests for your Leo programs using the built-in test framework.
+
+## Test Framework Overview
+
+Leo includes a comprehensive test framework located in `crates/test-framework/` that supports:
+
+- Unit tests within test programs
+- Integration tests in the `tests/` directory
+- Expectation-based testing with automatic output comparison
+- Parallel test execution
+
+## Writing Unit Tests
+
+### Test Program Structure
+
+Tests are written in separate `.leo` files in the `tests/` directory:
+
+```
+my_project/
+├── src/
+│   └── main.leo
+└── tests/
+    └── test_my_project.leo
+```
+
+### Basic Test Example
+
+Create a test program that imports your main program:
+
+```leo title="tests/test_my_project.leo"
+import my_project.aleo;
+
+program test_my_project.aleo {
+    @test
+    fn test_addition() {
+        let result: u32 = my_project.aleo/main(2u32, 3u32);
+        assert_eq(result, 5u32);
+    }
+
+    @noupgrade
+    constructor() {}
+}
+```
+
+<Note>
+Test programs must import the program they're testing and use the `@test` annotation on test functions.
+</Note>
+
+### Test Annotations
+
+Leo provides several test annotations:
+
+<Accordion title="@test">
+Marks a function as a test case:
+
+```leo
+@test
+fn test_basic_math() {
+    let result: u32 = 2u32 + 2u32;
+    assert_eq(result, 4u32);
+}
+```
+</Accordion>
+
+<Accordion title="@should_fail">
+Indicates the test should fail or panic:
+
+```leo
+@test
+@should_fail
+fn test_invalid_input() {
+    let result: u32 = my_project.aleo/main(2u32, 3u32);
+    assert_eq(result, 3u32);  // This assertion fails
+}
+```
+</Accordion>
+
+### Script Tests
+
+You can also write standalone test scripts:
+
+```leo
+import my_project.aleo;
+
+@test
+script test_it() {
+    let result: u32 = my_project.aleo/main(1u32, 2u32);
+    assert_eq(result, 3u32);
+}
+```
+
+<Tip>
+Scripts are lightweight test cases that don't require a full program definition.
+</Tip>
+
+## Assertions
+
+### assert_eq
+
+Compare two values for equality:
+
+```leo
+@test
+fn test_equality() {
+    let a: u32 = 10u32;
+    let b: u32 = 10u32;
+    assert_eq(a, b);
+}
+```
+
+### assert_neq
+
+Compare two values for inequality:
+
+```leo
+@test
+fn test_inequality() {
+    let a: u32 = 10u32;
+    let b: u32 = 20u32;
+    assert_neq(a, b);
+}
+```
+
+### Complex Assertions
+
+Test with complex data structures:
+
+```leo
+struct Token {
+    owner: address,
+    amount: u64,
+}
+
+@test
+fn test_struct_creation() {
+    let token: Token = Token {
+        owner: aleo1xxx...xxx,
+        amount: 100u64,
+    };
+    assert_eq(token.amount, 100u64);
+}
+```
+
+## Running Tests
+
+### Run All Tests
+
+Execute all tests in your project:
+
+```bash
+leo test
+```
+
+### Run Specific Tests
+
+Use the `TEST_FILTER` environment variable to run specific tests:
+
+```bash
+TEST_FILTER=addition leo test
+```
+
+This runs only tests whose names contain "addition".
+
+### Update Expectations
+
+When test output changes intentionally, update expectation files:
+
+```bash
+UPDATE_EXPECT=1 leo test
+```
+
+<Warning>
+Only use `UPDATE_EXPECT=1` when you've verified the new output is correct. This overwrites all expectation files.
+</Warning>
+
+## Test Framework Internals
+
+The Leo test framework (from `crates/test-framework/src/lib.rs`):
+
+<Steps>
+
+<Step title="Test Discovery">
+Scans the `tests/{category}` directory for `.leo` files:
+
+```rust
+let paths: Vec<PathBuf> = WalkDir::new(&tests_dir)
+    .into_iter()
+    .flatten()
+    .filter_map(|entry| {
+        let path = entry.path();
+        if path_str.ends_with(".leo") {
+            Some(path.into())
+        } else {
+            None
+        }
+    })
+    .collect();
+```
+</Step>
+
+<Step title="Test Execution">
+Runs each test through the runner function:
+
+```rust
+let result_output = std::panic::catch_unwind(|| runner(&contents));
+```
+</Step>
+
+<Step title="Output Comparison">
+Compares output against expectation files in `expectations/{category}/`:
+
+```rust
+let expected = fs::read_to_string(&expectation_path)?;
+if output != expected {
+    // Test failed - show diff
+    print_diff(&expected, &output);
+}
+```
+</Step>
+
+</Steps>
+
+### Parallel Execution
+
+Tests run in parallel by default using Rayon:
+
+```rust
+#[cfg(not(feature = "no_parallel"))]
+let results: Vec<TestResult> = paths.par_iter().map(run_test).collect();
+```
+
+<Tip>
+For sequential execution, build with `--features no_parallel`.
+</Tip>
+
+## Integration Testing
+
+### Testing with Dependencies
+
+Test programs can have their own dependencies:
+
+```json title="program.json"
+{
+  "program": "my_program.aleo",
+  "version": "0.1.0",
+  "dependencies": null,
+  "dev_dependencies": [
+    {
+      "name": "test_utils.aleo",
+      "location": "local",
+      "path": "../test_utils"
+    }
+  ]
+}
+```
+
+### Testing with Multiple Programs
+
+Test interactions between programs:
+
+```leo title="tests/test_interaction.leo"
+import program_a.aleo;
+import program_b.aleo;
+
+program test_interaction.aleo {
+    @test
+    fn test_cross_program_call() {
+        let result_a: u32 = program_a.aleo/compute(5u32);
+        let result_b: u32 = program_b.aleo/process(result_a);
+        assert_eq(result_b, 10u32);
+    }
+
+    @noupgrade
+    constructor() {}
+}
+```
+
+## Testing Async and Finalize
+
+### Testing Mappings
+
+Test programs that use on-chain storage:
+
+```leo
+program registry.aleo {
+    mapping users: address => bool;
+
+    fn register() -> Final {
+        let caller = self.caller;
+        return final { finalize_register(caller); };
+    }
+}
+
+final fn finalize_register(addr: address) {
+    Mapping::set(users, addr, true);
+}
+```
+
+Test the finalize logic:
+
+```leo title="tests/test_registry.leo"
+import registry.aleo;
+
+program test_registry.aleo {
+    @test
+    fn test_registration() {
+        let result: Final = registry.aleo/register();
+        // Test the Final return value
+    }
+
+    @noupgrade
+    constructor() {}
+}
+```
+
+### Testing Records
+
+Test private record creation and manipulation:
+
+```leo
+@test
+fn test_record_creation() {
+    let token: Token = create_token();
+    assert_eq(token.amount, 100u64);
+    assert_eq(token.owner, self.signer);
+}
+```
+
+## Compiler Test Categories
+
+The Leo compiler includes extensive tests organized by category:
+
+```
+tests/tests/
+├── compiler/
+│   ├── address/      # Address type tests
+│   ├── array/        # Array tests
+│   ├── function/     # Function tests
+│   ├── mappings/     # Mapping tests
+│   ├── records/      # Record tests
+│   └── structs/      # Struct tests
+├── parser/           # Parser tests
+└── passes/           # Compiler pass tests
+```
+
+### Running Compiler Tests
+
+```bash
+# Run all compiler tests
+cargo test -p leo-compiler
+
+# Run specific category
+TEST_FILTER=function cargo test -p leo-compiler
+
+# Update parser expectations
+UPDATE_EXPECT=1 cargo test -p leo-parser
+```
+
+## Best Practices
+
+<Steps>
+
+<Step title="Test One Thing">
+Each test should verify a single behavior:
+
+```leo
+@test
+fn test_addition() {
+    let result: u32 = add(2u32, 3u32);
+    assert_eq(result, 5u32);
+}
+
+@test
+fn test_multiplication() {
+    let result: u32 = multiply(2u32, 3u32);
+    assert_eq(result, 6u32);
+}
+```
+</Step>
+
+<Step title="Use Descriptive Names">
+Test names should describe what they verify:
+
+```leo
+@test
+fn test_transfer_reduces_sender_balance() { ... }  // Good
+
+@test
+fn test1() { ... }  // Avoid
+```
+</Step>
+
+<Step title="Test Edge Cases">
+Include tests for boundary conditions:
+
+```leo
+@test
+fn test_zero_input() {
+    let result: u32 = process(0u32);
+    assert_eq(result, 0u32);
+}
+
+@test
+fn test_max_value() {
+    let max: u32 = 4294967295u32;
+    let result: u32 = process(max);
+    assert_eq(result, max);
+}
+```
+</Step>
+
+<Step title="Test Failure Cases">
+Verify error conditions with `@should_fail`:
+
+```leo
+@test
+@should_fail
+fn test_division_by_zero() {
+    let result: u32 = divide(10u32, 0u32);
+}
+```
+</Step>
+
+</Steps>
+
+## CI/CD Integration
+
+Leo tests integrate with continuous integration:
+
+### CircleCI Example
+
+```yaml
+version: 2.1
+jobs:
+  test:
+    docker:
+      - image: cimg/rust:1.70
+    steps:
+      - checkout
+      - run: cargo test --all-features
+      - run: cargo test -p leo-compiler
+```
+
+### GitHub Actions Example
+
+```yaml
+name: Test
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+      - run: cargo test --workspace
+```
+
+## Next Steps
+
+- Learn [debugging techniques](/development/debugging) for failing tests
+- Review [best practices](/development/best-practices) for test coverage
+- Explore [package management](/development/package-management) for test dependencies

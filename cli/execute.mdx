@@ -1,0 +1,459 @@
+---
+title: leo execute
+description: Execute Leo programs on-chain with cryptographic proofs and optional broadcasting
+---
+
+The `leo execute` command executes Leo programs on the Aleo network, generating cryptographic proofs and optionally broadcasting transactions.
+
+## Syntax
+
+```bash
+leo execute [NAME] [INPUTS...] [OPTIONS]
+```
+
+## Arguments
+
+<ParamField path="NAME" type="string" default="main">
+  The function to execute. Can be:
+  - Function name only: `main`
+  - Qualified name: `hello_world.aleo/main`
+</ParamField>
+
+<ParamField path="INPUTS" type="string[]">
+  Program inputs in Aleo format:
+  - Literals: `1u32`, `true`, `5field`
+  - Records (plaintext): `{ owner: aleo1..., gates: 5u64 }`
+  - Records (ciphertext): `record1...` (automatically decrypted)
+</ParamField>
+
+## Options
+
+### Network Options
+
+<ParamField path="--network" type="string" required>
+  Network type: `mainnet`, `testnet`, or `canary`.
+</ParamField>
+
+<ParamField path="--endpoint" type="string" required>
+  Network endpoint URL. Examples:
+  - Mainnet: `https://api.explorer.provable.com/v1`
+  - Testnet: `https://api.explorer.provable.com/v1`
+  - Devnet: `http://localhost:3030`
+</ParamField>
+
+<ParamField path="--private-key" type="string" required>
+  Private key to sign the transaction.
+  
+  <Warning>
+    Never use test private keys on mainnet. Keep your private keys secure.
+  </Warning>
+</ParamField>
+
+<ParamField path="--devnet" type="boolean" default={false}>
+  Whether the network is a devnet.
+</ParamField>
+
+<ParamField path="--consensus-heights" type="string">
+  Custom consensus heights (comma-separated). For custom devnets only.
+</ParamField>
+
+### Fee Options
+
+<ParamField path="--priority-fees" type="string">
+  Priority fee in microcredits, delimited by `|`. Use `default` for automatic calculation.
+  
+  Example: `1000|2000|default`
+</ParamField>
+
+<ParamField path="--fee-records" type="string">
+  Records to pay fees privately, delimited by `|`. Use `default` for public fees.
+  
+  Example: `record1abc...|default`
+</ParamField>
+
+### Transaction Actions
+
+<ParamField path="--broadcast" type="boolean" default={false}>
+  Broadcast the transaction to the network.
+</ParamField>
+
+<ParamField path="--print" type="boolean" default={false}>
+  Print the transaction JSON to stdout.
+</ParamField>
+
+<ParamField path="--save" type="string">
+  Save the transaction to the specified directory.
+</ParamField>
+
+### Additional Options
+
+<ParamField path="--skip-execute-proof" type="boolean" default={false}>
+  Skip proof generation. Generates transaction without proof (for testing).
+</ParamField>
+
+<ParamField path="-y, --yes" type="boolean" default={false}>
+  Skip confirmation prompts. Use with caution.
+</ParamField>
+
+<ParamField path="--consensus-version" type="number">
+  Consensus version to use (1-13). Auto-detected if not provided.
+</ParamField>
+
+<ParamField path="--max-wait" type="number" default={8}>
+  Seconds to wait for block confirmation.
+</ParamField>
+
+<ParamField path="--blocks-to-check" type="number" default={12}>
+  Number of blocks to check for transaction confirmation.
+</ParamField>
+
+### Build Options
+
+<ParamField path="--no-cache" type="boolean" default={false}>
+  Don't use the dependency cache.
+</ParamField>
+
+<ParamField path="--no-local" type="boolean" default={false}>
+  Use network versions of dependencies.
+</ParamField>
+
+## Examples
+
+### Execute and Print
+
+```bash
+leo execute main 1u32 2u32 --print
+```
+
+Generates the transaction and prints it without broadcasting:
+
+```json
+{
+  "type": "execute",
+  "id": "at1...",
+  "execution": {
+    "transitions": [...],
+    "global_state_root": "sr1..."
+  },
+  "fee": {
+    "transition": {...},
+    "global_state_root": "sr1..."
+  }
+}
+```
+
+### Execute and Broadcast
+
+```bash
+leo execute main 1u32 2u32 \
+  --broadcast \
+  --private-key APrivateKey1zkp... \
+  --network testnet \
+  --endpoint https://api.explorer.provable.com/v1
+```
+
+Output:
+```
+🚀 Execution Plan Summary
+──────────────────────────────────────────────
+🔧 Configuration:
+  Private Key:        APrivateKey1zkp...
+  Address:            aleo1abc...
+  Endpoint:           https://api.explorer.provable.com/v1
+  Network:            testnet
+  Consensus Version:  13
+
+🎯 Execution Target:
+  Program:            hello_world.aleo
+  Function:           main
+  Source:             local
+
+💸 Fee Info:
+  Priority Fee:       0 μcredits
+  Fee Record:         no (public fee)
+
+⚙️ Actions:
+  - Transaction will be broadcast to https://api.explorer.provable.com/v1
+
+Do you want to proceed with execution? [y/N]: y
+
+⚙️ Executing hello_world.aleo/main...
+
+📊 Execution Cost Summary for hello_world.aleo
+──────────────────────────────────────────────
+  Storage Cost:       1234 μcredits
+  Execution Cost:     5678 μcredits
+  Priority Fee:       0 μcredits
+  Total Cost:         6912 μcredits
+──────────────────────────────────────────────
+
+➡️  Output
+
+ • 3u32
+
+📡 Broadcasting execution for hello_world.aleo...
+✅ Execution confirmed!
+```
+
+### Execute with Priority Fee
+
+```bash
+leo execute main 1u32 2u32 \
+  --priority-fees 1000 \
+  --broadcast \
+  --private-key APrivateKey1zkp...
+```
+
+<Note>
+  Priority fees increase the likelihood of faster transaction inclusion by validators.
+</Note>
+
+### Execute with Private Fee
+
+```bash
+leo execute main 1u32 2u32 \
+  --fee-records record1abc... \
+  --broadcast \
+  --private-key APrivateKey1zkp...
+```
+
+Use a record to pay fees privately instead of public credits.
+
+### Execute and Save
+
+```bash
+leo execute main 1u32 2u32 \
+  --save ./transactions \
+  --private-key APrivateKey1zkp...
+```
+
+Saves the transaction to `./transactions/transaction.execution.json`.
+
+### Execute Remote Program
+
+```bash
+leo execute credits.aleo/transfer_public \
+  aleo1receiver... \
+  100u64 \
+  --broadcast \
+  --private-key APrivateKey1zkp...
+```
+
+Executes a program deployed on the network.
+
+### Skip Proof Generation (Testing)
+
+```bash
+leo execute main 1u32 2u32 \
+  --skip-execute-proof \
+  --print
+```
+
+<Warning>
+  Transactions without proofs cannot be broadcast to the network. Use `--skip-execute-proof` for testing only.
+</Warning>
+
+### Execute with Custom Consensus Version
+
+```bash
+leo execute main 1u32 2u32 \
+  --consensus-version 13 \
+  --broadcast
+```
+
+### Execute Without Confirmation
+
+```bash
+leo execute main 1u32 2u32 \
+  --broadcast \
+  --yes \
+  --private-key APrivateKey1zkp...
+```
+
+<Warning>
+  Use `--yes` with caution. It skips all confirmation prompts.
+</Warning>
+
+## Execution Flow
+
+1. **Build Phase**:
+   - Compiles the program if in a Leo project
+   - Resolves and downloads dependencies
+
+2. **VM Initialization**:
+   - Creates VM with consensus store
+   - Initializes query interface for network state
+
+3. **Program Loading**:
+   - Loads local or remote programs
+   - Adds programs to VM in dependency order
+
+4. **Authorization**:
+   - Generates authorization for function execution
+   - Creates proof (unless `--skip-execute-proof`)
+
+5. **Cost Estimation**:
+   - Calculates storage and execution costs
+   - Displays cost summary
+
+6. **Fee Authorization**:
+   - Generates fee authorization (public or private)
+   - Uses provided priority fee if specified
+
+7. **Transaction Creation**:
+   - Combines execution and fee
+   - Produces final transaction
+
+8. **Broadcasting** (if `--broadcast`):
+   - Confirms fee with user
+   - Broadcasts to network
+   - Monitors for confirmation
+
+## Cost Breakdown
+
+Execution costs consist of:
+
+### Storage Cost
+Cost to store transaction data on-chain:
+- Proportional to transaction size
+- Measured in microcredits
+
+### Execution Cost
+Cost to execute the program:
+- Based on computational complexity
+- Number of constraints in the circuit
+
+### Priority Fee
+Optional fee to prioritize transaction:
+- Higher fees increase inclusion likelihood
+- Goes to block validators
+
+### Total Cost
+```
+Total = Storage Cost + Execution Cost + Priority Fee
+```
+
+## Transaction Confirmation
+
+After broadcasting, Leo monitors the transaction:
+
+```bash
+📡 Broadcasting execution for hello_world.aleo...
+
+Transaction ID: at1abc...
+Fee ID: fi1def...
+
+Checking for confirmation in blocks...
+✅ Execution confirmed!
+```
+
+Confirmation process:
+1. Broadcasts transaction to mempool
+2. Waits for inclusion in a block (up to `--max-wait` seconds per block)
+3. Checks recent blocks (up to `--blocks-to-check` blocks)
+4. Reports success or timeout
+
+## JSON Output Format
+
+With `--print` or `--save`, transactions are in JSON format:
+
+```json
+{
+  "type": "execute",
+  "id": "at1...",
+  "execution": {
+    "transitions": [
+      {
+        "id": "...",
+        "program": "hello_world.aleo",
+        "function": "main",
+        "inputs": [...],
+        "outputs": [...],
+        "tpk": "...",
+        "tcm": "..."
+      }
+    ],
+    "global_state_root": "sr1...",
+    "proof": "..."
+  },
+  "fee": {
+    "transition": {...},
+    "global_state_root": "sr1...",
+    "proof": "..."
+  }
+}
+```
+
+## Warnings
+
+Leo displays warnings for:
+
+### Program Mismatch
+```
+⚠️ The program 'hello_world.aleo' on the network does not match the local copy.
+```
+
+Resolution:
+- Deploy your local version, or
+- Use `--no-local` to use the network version
+
+### Program Not on Network
+```
+⚠️ The program 'hello_world.aleo' does not exist on the network.
+```
+
+Resolution:
+- Deploy the program first with [`leo deploy`](/cli/deploy)
+
+### Consensus Version Mismatch
+```
+⚠️ Expected consensus version 13 but found 12 at endpoint.
+```
+
+Resolution:
+- Verify your endpoint is correct
+- Use `--consensus-version` to override
+
+## Troubleshooting
+
+### Insufficient Balance
+
+```
+Failed to authorize fee: insufficient balance
+```
+
+Ensure your account has enough credits for the execution cost and fees.
+
+### Transaction Rejected
+
+```
+Failed to broadcast execution: transaction rejected by mempool
+```
+
+Possible causes:
+- Invalid inputs
+- Program not deployed
+- Insufficient fee
+- Consensus version mismatch
+
+### Confirmation Timeout
+
+```
+Transaction not confirmed within 12 blocks
+```
+
+The transaction may still be pending. Check the transaction ID on a block explorer.
+
+## Best Practices
+
+1. **Test First**: Use `leo run` for rapid testing before executing on-chain
+2. **Verify Costs**: Review cost summaries before confirming
+3. **Use Priority Fees**: For time-sensitive transactions
+4. **Save Transactions**: Use `--save` for record-keeping
+5. **Monitor Confirmation**: Wait for confirmation before assuming success
+
+## Next Steps
+
+- [Deploy programs](/cli/deploy)
+- [Query transactions](/cli/query)
+- [Test locally](/cli/run)

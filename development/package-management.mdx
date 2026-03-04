@@ -1,0 +1,614 @@
+---
+title: Package Management
+description: Managing dependencies, program.json configuration, and imports in Leo
+---
+
+Learn how to manage dependencies, configure your program manifest, and work with local and network imports in Leo.
+
+## Program Manifest (program.json)
+
+Every Leo project has a `program.json` manifest file that defines metadata and dependencies.
+
+### Basic Structure
+
+```json title="program.json"
+{
+  "program": "my_program.aleo",
+  "version": "0.1.0",
+  "description": "",
+  "license": "MIT",
+  "dependencies": null,
+  "dev_dependencies": null
+}
+```
+
+### Manifest Fields
+
+<Accordion title="program (required)">
+The unique name of your program, must end with `.aleo`:
+
+```json
+"program": "token_manager.aleo"
+```
+
+Must follow naming rules:
+- Start with a letter
+- Contain only ASCII alphanumeric characters and underscores
+- Not contain the keyword "aleo" in the name
+- Not be a reserved keyword
+</Accordion>
+
+<Accordion title="version (required)">
+Semantic version of your program:
+
+```json
+"version": "0.1.0"
+```
+
+Follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATCH`
+</Accordion>
+
+<Accordion title="description (optional)">
+Human-readable description of your program:
+
+```json
+"description": "A token management system for Aleo"
+```
+</Accordion>
+
+<Accordion title="license (required)">
+Software license identifier:
+
+```json
+"license": "MIT"
+```
+
+Common options: `MIT`, `Apache-2.0`, `GPL-3.0`
+</Accordion>
+
+<Accordion title="dependencies (optional)">
+External programs your code depends on:
+
+```json
+"dependencies": [
+  {
+    "name": "credits.aleo",
+    "location": "network"
+  }
+]
+```
+</Accordion>
+
+<Accordion title="dev_dependencies (optional)">
+Dependencies only needed for testing:
+
+```json
+"dev_dependencies": [
+  {
+    "name": "test_utils.aleo",
+    "location": "local",
+    "path": "../test_utils"
+  }
+]
+```
+</Accordion>
+
+## Dependency Types
+
+### Network Dependencies
+
+Import deployed programs from the Aleo network:
+
+```json
+"dependencies": [
+  {
+    "name": "credits.aleo",
+    "location": "network"
+  }
+]
+```
+
+Use in your code:
+
+```leo title="src/main.leo"
+import credits.aleo;
+
+program my_program.aleo {
+    fn use_credits() {
+        // Access credits.aleo functions
+    }
+}
+```
+
+<Note>
+Network dependencies are automatically fetched from the Aleo network and cached locally in `~/.aleo/registry/{network}/{program}/{edition}/`.
+</Note>
+
+### Local Dependencies
+
+Import programs from your local filesystem:
+
+```json
+"dependencies": [
+  {
+    "name": "utils.aleo",
+    "location": "local",
+    "path": "../utils"
+  }
+]
+```
+
+Project structure:
+
+```
+workspace/
+├── my_program/
+│   ├── program.json
+│   └── src/
+│       └── main.leo
+└── utils/
+    ├── program.json
+    └── src/
+        └── main.leo
+```
+
+<Tip>
+Local dependencies use relative paths from the project directory. Use `../` to reference sibling directories.
+</Tip>
+
+### Local Aleo File Dependencies
+
+Import compiled `.aleo` bytecode files:
+
+```json
+"dependencies": [
+  {
+    "name": "external.aleo",
+    "location": "local",
+    "path": "./imports/external.aleo"
+  }
+]
+```
+
+<Warning>
+The path must point to a `.aleo` file, not a directory. This is useful for pre-compiled dependencies.
+</Warning>
+
+### Dependency Editions
+
+Specify a specific version (edition) of a network dependency:
+
+```json
+"dependencies": [
+  {
+    "name": "token.aleo",
+    "location": "network",
+    "edition": 2
+  }
+]
+```
+
+Without an edition, Leo fetches the latest version:
+
+```json
+{
+  "name": "token.aleo",
+  "location": "network"
+  // Fetches latest edition
+}
+```
+
+## Dependency Resolution
+
+Leo resolves dependencies in topological order:
+
+<Steps>
+
+<Step title="Parse Manifest">
+Leo reads `program.json` and collects all dependencies:
+
+```rust
+let manifest = Manifest::read_from_file(path.join(MANIFEST_FILENAME))?;
+```
+</Step>
+
+<Step title="Build Dependency Graph">
+Constructs a directed graph of program dependencies:
+
+```rust
+let mut digraph = DiGraph::<Symbol>::new(Default::default());
+```
+</Step>
+
+<Step title="Fetch Dependencies">
+For each dependency:
+- **Local**: Read from filesystem
+- **Network**: Fetch from Aleo network and cache
+
+```rust
+Program::fetch(name_symbol, edition, home_path, network, endpoint, no_cache)
+```
+</Step>
+
+<Step title="Topological Sort">
+Orders programs so dependencies are compiled before dependents:
+
+```rust
+let ordered_dependency_symbols = 
+    digraph.post_order()
+           .map_err(|_| UtilError::circular_dependency_error())?;
+```
+</Step>
+
+</Steps>
+
+### Circular Dependency Detection
+
+Leo detects and rejects circular dependencies:
+
+```
+program_a.aleo → program_b.aleo → program_a.aleo  // Error!
+```
+
+<Warning>
+Circular dependencies are not allowed. Restructure your programs to have a directed acyclic dependency graph.
+</Warning>
+
+## Working with Imports
+
+### Basic Import
+
+Import an external program:
+
+```leo
+import credits.aleo;
+
+program my_program.aleo {
+    fn transfer_credits() {
+        // Use credits.aleo functions
+    }
+}
+```
+
+### Using Imported Types
+
+Access structs and records from imported programs:
+
+```leo
+import child.aleo;
+
+program parent.aleo {
+    fn create_foo() -> child.aleo/Foo {
+        return child.aleo/Foo {
+            x: 0u32,
+            y: 0u32
+        };
+    }
+}
+```
+
+### Calling Imported Functions
+
+Invoke functions from dependencies:
+
+```leo
+import registry.aleo;
+
+program relay.aleo {
+    fn check_user(addr: address) -> Final {
+        return final { finalize_check(addr); };
+    }
+}
+
+final fn finalize_check(addr: address) {
+    // Access external mapping
+    let is_registered: bool = Mapping::get(registry.aleo/users, addr);
+    assert_eq(is_registered, true);
+}
+```
+
+<Note>
+Use the `program.aleo/item` syntax to reference imported items.
+</Note>
+
+## Package Structure
+
+Leo expects a specific directory structure:
+
+```
+my_program/
+├── program.json          # Manifest
+├── src/                  # Source code
+│   ├── main.leo         # Main program
+│   └── utils.leo        # Additional modules (optional)
+├── tests/               # Test files
+│   └── test_*.leo
+├── build/               # Build output
+│   ├── main.aleo        # Compiled program
+│   └── imports/         # Compiled dependencies
+│       └── credits.aleo
+├── outputs/             # Compiler artifacts
+│   └── *.ast
+└── .gitignore
+```
+
+### Creating Packages
+
+Initialize a new package:
+
+```bash
+leo new my_program
+```
+
+This creates:
+- Package directory structure
+- `program.json` with defaults
+- Basic `src/main.leo` template
+- `.gitignore` file
+- Sample test file
+
+From `crates/package/src/package.rs:420-442`:
+
+```rust
+fn main_template(name: &str) -> String {
+    format!(
+        r#"// The '{name}' program.
+program {name}.aleo {{
+    @noupgrade
+    constructor() {{}}
+
+    fn main(public a: u32, b: u32) -> u32 {{
+        let c: u32 = a + b;
+        return c;
+    }}
+}}
+"#
+    )
+}
+```
+
+### Package Constants
+
+Key directory names (from `crates/package/src/lib.rs`):
+
+```rust
+pub const SOURCE_DIRECTORY: &str = "src";
+pub const MAIN_FILENAME: &str = "main.leo";
+pub const IMPORTS_DIRECTORY: &str = "build/imports";
+pub const OUTPUTS_DIRECTORY: &str = "outputs";
+pub const BUILD_DIRECTORY: &str = "build";
+pub const ABI_FILENAME: &str = "abi.json";
+pub const TESTS_DIRECTORY: &str = "tests";
+```
+
+## Dependency Caching
+
+### Cache Location
+
+Network dependencies are cached in:
+
+```
+~/.aleo/registry/{network}/{program}/{edition}/{program}.aleo
+```
+
+Example:
+
+```
+~/.aleo/registry/testnetv0/credits.aleo/0/credits.aleo
+```
+
+### Disabling Cache
+
+Force fresh dependency fetches:
+
+```bash
+leo build --no-cache
+```
+
+### Clearing Cache
+
+Manually clear cached dependencies:
+
+```bash
+rm -rf ~/.aleo/registry
+```
+
+<Tip>
+The cache improves build times by avoiding redundant network requests. Only disable it when debugging dependency issues.
+</Tip>
+
+## Advanced Configuration
+
+### Multiple Dependencies
+
+Combine local and network dependencies:
+
+```json
+"dependencies": [
+  {
+    "name": "credits.aleo",
+    "location": "network"
+  },
+  {
+    "name": "utils.aleo",
+    "location": "local",
+    "path": "../utils"
+  },
+  {
+    "name": "token.aleo",
+    "location": "network",
+    "edition": 3
+  }
+]
+```
+
+### Test Dependencies
+
+Separate dependencies for tests:
+
+```json
+"dependencies": [
+  {
+    "name": "credits.aleo",
+    "location": "network"
+  }
+],
+"dev_dependencies": [
+  {
+    "name": "test_helpers.aleo",
+    "location": "local",
+    "path": "../test_helpers"
+  }
+]
+```
+
+Test files automatically have access to both `dependencies` and `dev_dependencies`.
+
+### Dependency Conflicts
+
+Leo detects conflicting dependencies:
+
+```json
+// Error: Same program with different configurations
+"dependencies": [
+  {
+    "name": "token.aleo",
+    "location": "network",
+    "edition": 1
+  },
+  {
+    "name": "token.aleo",
+    "location": "network",
+    "edition": 2  // Conflict!
+  }
+]
+```
+
+<Warning>
+Each dependency must have a unique name and consistent configuration across your dependency tree.
+</Warning>
+
+## Program Size Limits
+
+Programs have size limits (from `crates/package/src/lib.rs`):
+
+```rust
+pub const MAX_PROGRAM_SIZE: usize = 
+    <snarkvm::prelude::TestnetV0 as snarkvm::prelude::Network>::MAX_PROGRAM_SIZE;
+```
+
+Leo validates program size during compilation:
+
+```rust
+if program_size > MAX_PROGRAM_SIZE {
+    return Err(UtilError::program_size_limit_exceeded(
+        name,
+        program_size,
+        MAX_PROGRAM_SIZE,
+    ));
+}
+```
+
+## Best Practices
+
+<Steps>
+
+<Step title="Use Semantic Versioning">
+Version your programs following semver:
+
+```json
+"version": "1.2.3"  // MAJOR.MINOR.PATCH
+```
+
+- MAJOR: Breaking changes
+- MINOR: New features, backwards compatible
+- PATCH: Bug fixes
+</Step>
+
+<Step title="Pin Critical Dependencies">
+Specify editions for production dependencies:
+
+```json
+"dependencies": [
+  {
+    "name": "critical.aleo",
+    "location": "network",
+    "edition": 5  // Pin to specific version
+  }
+]
+```
+</Step>
+
+<Step title="Document Dependencies">
+Add descriptions explaining why dependencies are needed:
+
+```json
+{
+  "program": "my_program.aleo",
+  "description": "Token manager - depends on credits.aleo for transfers",
+  "dependencies": [{
+    "name": "credits.aleo",
+    "location": "network"
+  }]
+}
+```
+</Step>
+
+<Step title="Minimize Dependencies">
+Only include necessary dependencies to reduce:
+- Build times
+- Circuit size
+- Attack surface
+</Step>
+
+<Step title="Test Dependency Changes">
+Run full test suite after updating dependencies:
+
+```bash
+leo test
+leo build
+```
+</Step>
+
+</Steps>
+
+## Troubleshooting
+
+### Dependency Not Found
+
+```
+Error: Failed to fetch program from network
+```
+
+Solutions:
+- Verify program name spelling
+- Check network connectivity
+- Confirm program exists on network
+- Try with `--no-cache`
+
+### Path Not Found
+
+```
+Error: Failed to load package at './relative/path'
+```
+
+Solutions:
+- Verify relative path is correct
+- Check directory structure
+- Ensure `program.json` exists in target directory
+
+### Version Mismatch
+
+```
+Error: Program name mismatch
+```
+
+Solutions:
+- Ensure `program` field in manifest matches actual program name
+- Check imported program names match manifest declarations
+
+## Next Steps
+
+- Review [best practices](/development/best-practices) for dependency management
+- Learn about [testing](/development/testing) with dependencies
+- Explore [writing programs](/development/writing-programs) that others can depend on

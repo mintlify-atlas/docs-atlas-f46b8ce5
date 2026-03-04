@@ -1,0 +1,468 @@
+---
+title: Records
+description: Learn about record types, ownership, and private state in Leo
+---
+
+## What are Records?
+
+Records are Leo's primitive for representing owned, private data on the Aleo blockchain. They are similar to UTXOs (Unspent Transaction Outputs) in Bitcoin - each record has a unique owner and can only be consumed once.
+
+## Record Declaration
+
+Records are declared using the `record` keyword:
+
+```leo
+record token {
+    owner: address,
+    amount: u64,
+}
+
+record Ticket {
+    owner: address,
+}
+```
+
+<Note>
+Every record must include an `owner` field of type `address`. The owner is the only account that can spend or consume the record.
+</Note>
+
+## Record Fields
+
+Records can contain multiple fields of different types:
+
+```leo
+record token {
+    owner: address,
+    amount: u64,
+}
+
+record GameAsset {
+    owner: address,
+    asset_id: u32,
+    level: u8,
+    power: u64,
+}
+
+record PrivateData {
+    owner: address,
+    data: [u8; 32],
+    timestamp: u64,
+}
+```
+
+## Creating Records
+
+### In Functions
+
+Create records by constructing them with all required fields:
+
+```leo
+fn mint_private(receiver: address, amount: u64) -> token {
+    return token {
+        owner: receiver,
+        amount: amount,
+    };
+}
+
+fn create_ticket() -> Ticket {
+    return Ticket {
+        owner: self.caller,
+    };
+}
+```
+
+### With Self Reference
+
+Use `self.caller` to create records for the transaction caller:
+
+```leo
+fn play() -> (Ticket, Final) {
+    let ticket: Ticket = Ticket {
+        owner: self.caller,
+    };
+    return (ticket, final { finalize_play() });
+}
+```
+
+## Consuming Records
+
+Records are consumed when used as function inputs:
+
+```leo
+fn transfer_private(
+    sender: token,              // Consumes this record
+    receiver: address, 
+    amount: u64
+) -> (token, token) {          // Creates two new records
+    let difference: u64 = sender.amount - amount;
+    
+    // Create new record for sender with remaining balance
+    let remaining: token = token {
+        owner: sender.owner,
+        amount: difference,
+    };
+    
+    // Create new record for receiver
+    let transferred: token = token {
+        owner: receiver,
+        amount: amount,
+    };
+    
+    return (remaining, transferred);
+}
+```
+
+<Warning>
+Once a record is consumed, it cannot be used again. The old record is destroyed and new records are created to represent the updated state.
+</Warning>
+
+## Record Ownership
+
+### Owner Field
+
+The `owner` field determines who can spend the record:
+
+```leo
+record token {
+    owner: address,  // Only this address can spend the token
+    amount: u64,
+}
+
+// Mint a token for a specific owner
+fn mint_private(receiver: address, amount: u64) -> token {
+    return token {
+        owner: receiver,  // receiver becomes the owner
+        amount: amount,
+    };
+}
+```
+
+### Transferring Ownership
+
+Transfer records by creating new records with different owners:
+
+```leo
+fn transfer_private(
+    sender: token,
+    receiver: address,
+    amount: u64
+) -> (token, token) {
+    // Create record for original owner (change)
+    let remaining: token = token {
+        owner: sender.owner,  // Keep original owner
+        amount: sender.amount - amount,
+    };
+    
+    // Create record for new owner
+    let transferred: token = token {
+        owner: receiver,      // New owner
+        amount: amount,
+    };
+    
+    return (remaining, transferred);
+}
+```
+
+## Accessing Record Fields
+
+Access record fields using dot notation:
+
+```leo
+fn get_balance(token: token) -> u64 {
+    return token.amount;
+}
+
+fn get_owner(token: token) -> address {
+    return token.owner;
+}
+
+fn is_owner(token: token, addr: address) -> bool {
+    return token.owner == addr;
+}
+```
+
+## Record Validation
+
+Validate record data before processing:
+
+```leo
+fn transfer_private(
+    sender: token,
+    receiver: address,
+    amount: u64
+) -> (token, token) {
+    // Validate sufficient balance
+    // This will fail if sender.amount < amount
+    let difference: u64 = sender.amount - amount;
+    
+    // Create new records
+    let remaining: token = token {
+        owner: sender.owner,
+        amount: difference,
+    };
+    
+    let transferred: token = token {
+        owner: receiver,
+        amount: amount,
+    };
+    
+    return (remaining, transferred);
+}
+```
+
+## Records vs Structs
+
+### Records
+
+- Must have an `owner` field
+- Represent owned, consumable assets
+- Are private by default
+- Can only be spent by the owner
+
+```leo
+record token {
+    owner: address,
+    amount: u64,
+}
+```
+
+### Structs
+
+- No ownership requirement
+- Represent data structures
+- Can be used anywhere
+- Not consumable
+
+```leo
+struct Board {
+    r1: Row,
+    r2: Row,
+    r3: Row,
+}
+```
+
+## Privacy Guarantees
+
+Records provide strong privacy guarantees:
+
+1. **Private Amounts**: Record field values are not revealed on-chain
+2. **Private Owners**: Record owners are not publicly known
+3. **Private Operations**: Computations on records are private
+4. **Zero-Knowledge Proofs**: All record operations are proven without revealing data
+
+```leo
+// This entire operation is private
+fn transfer_private(
+    sender: token,      // Private input
+    receiver: address,  // Private input
+    amount: u64        // Private input
+) -> (token, token) {  // Private outputs
+    // Private computation
+    let difference: u64 = sender.amount - amount;
+    
+    return (
+        token { owner: sender.owner, amount: difference },
+        token { owner: receiver, amount: amount }
+    );
+}
+```
+
+## Hybrid Public/Private Operations
+
+Combine private records with public state:
+
+```leo
+// Convert private record to public balance
+fn transfer_private_to_public(
+    sender: token,
+    public receiver: address,
+    public amount: u64
+) -> (token, Final) {
+    let difference: u64 = sender.amount - amount;
+    
+    // Private record for sender
+    let remaining: token = token {
+        owner: sender.owner,
+        amount: difference,
+    };
+    
+    // Public operation for receiver
+    return (remaining, final { 
+        finalize_transfer_private_to_public(receiver, amount) 
+    });
+}
+
+final fn finalize_transfer_private_to_public(
+    public receiver: address,
+    public amount: u64
+) {
+    // Update public state
+    let current_amount: u64 = Mapping::get_or_use(account, receiver, 0u64);
+    Mapping::set(account, receiver, current_amount + amount);
+}
+```
+
+```leo
+// Convert public balance to private record
+fn transfer_public_to_private(
+    public receiver: address,
+    public amount: u64
+) -> (token, Final) {
+    // Private record for receiver
+    let transferred: token = token {
+        owner: receiver,
+        amount: amount,
+    };
+    
+    // Deduct from public balance
+    return (transferred, final { 
+        finalize_transfer_public_to_private(self.caller, amount) 
+    });
+}
+
+final fn finalize_transfer_public_to_private(
+    public sender: address,
+    public amount: u64
+) {
+    // Update public state
+    let current_amount: u64 = Mapping::get_or_use(account, sender, 0u64);
+    Mapping::set(account, sender, current_amount - amount);
+}
+```
+
+## Best Practices
+
+### 1. Validate Before Consuming
+
+```leo
+// Good: Validate inputs
+fn transfer_private(
+    sender: token,
+    receiver: address,
+    amount: u64
+) -> (token, token) {
+    // This subtraction will fail if insufficient balance
+    let difference: u64 = sender.amount - amount;
+    // ...
+}
+
+// Better: Explicit validation
+fn transfer_with_check(
+    sender: token,
+    receiver: address,
+    amount: u64
+) -> (token, token) {
+    assert(sender.amount >= amount);
+    let difference: u64 = sender.amount - amount;
+    // ...
+}
+```
+
+### 2. Clear Ownership Transfer
+
+```leo
+// Good: Clear ownership semantics
+fn transfer_ownership(old_record: token, new_owner: address) -> token {
+    return token {
+        owner: new_owner,
+        amount: old_record.amount,
+    };
+}
+```
+
+### 3. Document Record Purpose
+
+```leo
+// The token record represents a private fungible token.
+// Each token has an owner and an amount.
+record token {
+    owner: address,
+    amount: u64,
+}
+
+// A ticket for participating in the lottery.
+// Tickets are issued to players and consumed when checking results.
+record Ticket {
+    owner: address,
+}
+```
+
+### 4. Handle Zero Amounts
+
+```leo
+// Good: Handle edge cases
+fn transfer_if_nonzero(
+    sender: token,
+    receiver: address,
+    amount: u64
+) -> (token, token) {
+    if amount == 0u64 {
+        // Return original record unchanged
+        return (
+            sender,
+            token { owner: receiver, amount: 0u64 }
+        );
+    }
+    
+    // Normal transfer logic
+    let difference: u64 = sender.amount - amount;
+    return (
+        token { owner: sender.owner, amount: difference },
+        token { owner: receiver, amount: amount }
+    );
+}
+```
+
+## Common Patterns
+
+### Splitting Records
+
+```leo
+fn split_token(token: token, amount: u64) -> (token, token) {
+    assert(token.amount >= amount);
+    
+    return (
+        token { owner: token.owner, amount: amount },
+        token { owner: token.owner, amount: token.amount - amount }
+    );
+}
+```
+
+### Merging Records
+
+```leo
+fn merge_tokens(token1: token, token2: token) -> token {
+    assert(token1.owner == token2.owner);
+    
+    return token {
+        owner: token1.owner,
+        amount: token1.amount + token2.amount,
+    };
+}
+```
+
+### Burning Records
+
+```leo
+fn burn(token: token) {
+    // Consume the record without creating a new one
+    // The record is destroyed
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Mappings" icon="map" href="/language/mappings">
+    Store public state on-chain
+  </Card>
+  <Card title="Functions" icon="function" href="/language/functions">
+    Work with records in functions
+  </Card>
+  <Card title="Finalize" icon="flag-checkered" href="/language/finalize">
+    Combine records with public state
+  </Card>
+  <Card title="Data Types" icon="database" href="/language/data-types">
+    Explore other types
+  </Card>
+</CardGroup>
