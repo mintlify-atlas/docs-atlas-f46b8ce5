@@ -1,0 +1,139 @@
+{
+  "projectType": "cli-tool",
+  "projectName": "Leo",
+  "projectDescription": "A programming language for writing formally verified, zero-knowledge applications on Aleo",
+  "theme": "aspen",
+  "primaryColor": "#848484",
+  "lightColor": "#171717",
+  "darkColor": "#e7e7e7",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Leo Language",
+            "pages": [
+              "language/overview",
+              "language/programs",
+              "language/data-types",
+              "language/operators",
+              "language/statements",
+              "language/functions",
+              "language/records",
+              "language/mappings",
+              "language/finalize",
+              "language/imports"
+            ]
+          },
+          {
+            "group": "CLI Commands",
+            "pages": [
+              "cli/overview",
+              "cli/new",
+              "cli/build",
+              "cli/run",
+              "cli/execute",
+              "cli/test",
+              "cli/deploy",
+              "cli/devnet",
+              "cli/devnode",
+              "cli/query",
+              "cli/account",
+              "cli/add",
+              "cli/remove",
+              "cli/clean",
+              "cli/update"
+            ]
+          },
+          {
+            "group": "Development",
+            "pages": [
+              "development/writing-programs",
+              "development/testing",
+              "development/debugging",
+              "development/package-management",
+              "development/best-practices"
+            ]
+          },
+          {
+            "group": "Advanced",
+            "pages": [
+              "advanced/compiler-architecture",
+              "advanced/compiler-passes",
+              "advanced/zero-knowledge-concepts",
+              "advanced/optimization"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Reference",
+        "groups": [
+          {
+            "group": "Language Reference",
+            "pages": [
+              "reference/grammar",
+              "reference/built-in-types",
+              "reference/standard-library",
+              "reference/aleo-instructions"
+            ]
+          },
+          {
+            "group": "Examples",
+            "pages": [
+              "examples/overview",
+              "examples/token",
+              "examples/tictactoe",
+              "examples/lottery"
+            ]
+          },
+          {
+            "group": "Resources",
+            "pages": [
+              "resources/troubleshooting",
+              "resources/faq",
+              "resources/contributing",
+              "resources/changelog"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Statically-typed programming language for zero-knowledge applications",
+    "Compiles to Aleo bytecode for formally verified ZK proofs",
+    "Built-in support for records, mappings, and on-chain storage",
+    "Comprehensive CLI with project scaffolding, testing, and deployment",
+    "Integration with Aleo blockchain for decentralized applications",
+    "Type system with integers, addresses, fields, groups, and custom types",
+    "Public and private function execution modes",
+    "Package manager for importing dependencies"
+  ],
+  "publicApiSurface": [
+    "leo new - Create a new Leo project",
+    "leo build - Compile a Leo program",
+    "leo run - Execute a program locally",
+    "leo execute - Execute a program on-chain",
+    "leo test - Run program tests",
+    "leo deploy - Deploy a program to the network",
+    "leo devnet - Run a local devnet",
+    "leo devnode - Run a local devnode",
+    "leo query - Query data from the Aleo network",
+    "leo account - Manage Aleo accounts",
+    "leo add - Add a dependency",
+    "leo remove - Remove a dependency",
+    "leo clean - Clean build artifacts",
+    "leo update - Update Leo CLI",
+    "leo fmt - Format Leo source files"
+  ]
+}
